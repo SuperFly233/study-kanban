@@ -165,7 +165,7 @@ body.cloud-logged-in .account-form #account-email{display:none}
 .countdown:after{content:"";position:absolute;right:-50px;bottom:-68px;width:178px;height:178px;border:28px solid rgba(255,255,255,.14);border-radius:50%}
 .count-label{font-size:17px;font-weight:850;opacity:.9;position:relative;z-index:1}
 .count-main{position:relative;z-index:1;display:flex;align-items:flex-end;gap:8px;font-weight:950;line-height:.9}
-.count-main strong{font-size:86px}
+.count-main strong{font-size:clamp(46px,5.2vw,76px);font-variant-numeric:tabular-nums;letter-spacing:0;white-space:nowrap}
 .count-main span{font-size:26px;margin-bottom:8px}
 .count-sub{position:relative;z-index:1;font-size:16px;font-weight:700;opacity:.86}
 .tip{margin-top:12px;padding:13px 18px;display:flex;gap:12px;align-items:flex-start;box-shadow:none}
@@ -269,7 +269,9 @@ body.cloud-logged-in .account-form #account-email{display:none}
 .danger-btn{background:var(--bad-bg);color:var(--bad);border-color:var(--bad)}
 .cloud-row{align-items:flex-start}
 .cloud-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.time-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .cloud-input{min-width:220px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);padding:10px 12px;font-size:14px;font-weight:800}
+.time-input{min-width:260px}
 .cloud-input::placeholder{color:var(--soft)}
 @media(max-width:1180px){
   .app{padding:96px 22px 42px}
@@ -317,7 +319,7 @@ body.cloud-logged-in .account-form #account-email{display:none}
   .pin-stats strong{font-size:14px;color:var(--text)}
   .hero-main{padding:20px}
   .phase-title{font-size:31px}
-  .count-main strong{font-size:64px}
+  .count-main strong{font-size:42px}
   .stat-row{grid-template-columns:1fr}
   .stat{border-right:0;border-bottom:1px solid var(--line)}
   .stat:last-child{border-bottom:0}
@@ -336,9 +338,9 @@ body.cloud-logged-in .account-form #account-email{display:none}
   .setting-sub{font-size:17px;line-height:1.55}
   .seg{width:100%;min-width:0}
   .seg button{min-height:50px;font-size:18px;padding:10px 8px}
-  .cloud-actions{display:grid;grid-template-columns:1fr;width:100%;justify-content:stretch}
+  .cloud-actions,.time-actions{display:grid;grid-template-columns:1fr;width:100%;justify-content:stretch}
   .account-actions{grid-template-columns:1fr}
   .auth-alt{grid-template-columns:1fr}
-  .cloud-input{width:100%;min-width:0;min-height:52px;font-size:17px}
+  .cloud-input,.time-input{width:100%;min-width:0;min-height:52px;font-size:17px}
   .plain-btn,.danger-btn{width:100%;min-height:56px;font-size:20px;padding:12px 16px}
 }

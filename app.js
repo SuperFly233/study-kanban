@@ -8,6 +8,7 @@ let cloudUser=null;
 let cloudBusy=false;
 let passwordRecoveryMode=false;
 let cloudBootstrapped=false;
+let countdownTimer=null;
 const toastState=new Map();
 const EXAMS={
   cet6:{
@@ -15,6 +16,7 @@ const EXAMS={
     short:'CET-6',
     start:'2026-04-18',
     end:'2026-06-13',
+    examTime:'15:00',
     examDateLabel:'6 月 13 日',
     target:'550+',
     resources:['B站 · 瑞思拜（听力/阅读/外刊）','B站 · 爱学习的小Q（翻译/写作）','B站 · 爱吃蕃茄鸡蛋仔','小红书 · 游（翻译/写作）','小红书 · 柴犬（写作）'],
@@ -110,6 +112,7 @@ const EXAMS={
     short:'初级会计',
     start:'2026-04-16',
     end:'2026-05-16',
+    examTime:'09:00',
     examDateLabel:'5 月 16 日',
     target:'过线',
     resources:['B站 · 饼叔 21天初级会计冲刺集训营','四色笔记 700 题','押题试卷三套','实务 + 经济法大题课'],
@@ -179,6 +182,24 @@ function dayKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(
 function parseDate(s){const p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2])}
 function addDays(d,n){return new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)}
 function daysBetween(a,b){return Math.round((b-a)/DAY_MS)}
+function examTimeKey(id=activeExamId){return `exam_time_${id}`}
+function defaultExamDateTime(id=activeExamId){const e=EXAMS[id];return `${e.end}T${e.examTime||'00:00'}`}
+function getExamDateTimeValue(id=activeExamId){return localStorage.getItem(examTimeKey(id))||defaultExamDateTime(id)}
+function parseDateTimeLocal(value){const [date,time='00:00']=String(value).split('T');const [y,m,d]=date.split('-').map(Number);const [hh=0,mm=0]=time.split(':').map(Number);return new Date(y,m-1,d,hh,mm)}
+function examTargetDate(id=activeExamId){return parseDateTimeLocal(getExamDateTimeValue(id))}
+function examEndDate(id=activeExamId){const target=examTargetDate(id);return new Date(target.getFullYear(),target.getMonth(),target.getDate())}
+function examDateText(id=activeExamId){
+  const target=examTargetDate(id);
+  return target.toLocaleString('zh-CN',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
+}
+function defaultExamDateText(id=activeExamId){
+  const target=parseDateTimeLocal(defaultExamDateTime(id));
+  return target.toLocaleString('zh-CN',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
+}
+function formatCountdownDays(days){
+  if(days<=0)return '0';
+  return days>=1?days.toFixed(5):days.toFixed(6);
+}
 function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
 function keyFor(date){return `checks_${activeExamId}_${dayKey(date)}`}
 function prepKey(id){return `prep_${activeExamId}_${id}`}
@@ -186,7 +207,7 @@ function loadChecks(date){return JSON.parse(localStorage.getItem(keyFor(date))||
 function saveChecks(date,items){const key=keyFor(date);localStorage.setItem(key,JSON.stringify([...new Set(items)]));syncKeyToCloud(key)}
 function loadPrep(item){return localStorage.getItem(prepKey(item.id))??item.content}
 function savePrep(id,value){const key=prepKey(id);localStorage.setItem(key,value);syncKeyToCloud(key)}
-function syncableKey(key){return key.startsWith('checks_')||key.startsWith('prep_')||key==='active_exam'||key==='theme'}
+function syncableKey(key){return key.startsWith('checks_')||key.startsWith('prep_')||key.startsWith('exam_time_')||key==='active_exam'||key==='theme'}
 function syncableItems(){
   const items={};
   for(let i=0;i<localStorage.length;i++){
@@ -200,6 +221,7 @@ function mapsEqual(a,b){const keys=new Set([...Object.keys(a),...Object.keys(b)]
 function syncKind(key){
   if(key.startsWith('checks_'))return '打卡';
   if(key.startsWith('prep_'))return '大合集';
+  if(key.startsWith('exam_time_'))return '考试时间';
   return '设置';
 }
 function syncDiffStats(local,remote){
@@ -225,7 +247,7 @@ function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 
 function examDayIndex(date){return daysBetween(parseDate(exam().start),date)+1}
 function phaseIndex(date){
-  const e=exam(), start=parseDate(e.start), end=parseDate(e.end), total=Math.max(1,daysBetween(start,end)), passed=daysBetween(start,date);
+  const e=exam(), start=parseDate(e.start), end=examEndDate(), total=Math.max(1,daysBetween(start,end)), passed=daysBetween(start,date);
   if(passed<0)return -1;
   if(passed>=total)return e.phases.length-1;
   let idx=0;
@@ -307,18 +329,16 @@ function renderActive(){
 }
 
 function renderToday(){
-  const e=exam(), d=today(), start=parseDate(e.start), end=parseDate(e.end), total=Math.max(1,daysBetween(start,end)), passed=clamp(daysBetween(start,d),0,total), left=Math.max(0,daysBetween(d,end));
+  const e=exam(), d=today(), start=parseDate(e.start), end=examEndDate(), target=examTargetDate(), passed=clamp((Date.now()-start.getTime())/(target.getTime()-start.getTime()),0,1), left=Math.max(0,Math.ceil((target-Date.now())/DAY_MS));
   const phase=phaseIndex(d), phaseName=phase>=0?e.phases[phase].name:'尚未开始';
   document.getElementById('today-date').textContent=d.toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   document.getElementById('today-phase').textContent=phaseName;
-  document.getElementById('today-left').textContent=left>0?`${e.name} 考试日：${e.examDateLabel}，还剩 ${left} 天`:`今天是 ${e.name} 考试日（${e.examDateLabel}），收尾复盘`;
+  document.getElementById('today-left').textContent=left>0?`${e.name} 考试时间：${examDateText()}，还剩 ${left} 天`:`今天是 ${e.name} 考试日（${examDateText()}），收尾复盘`;
   document.getElementById('pin-phase').textContent=phaseName;
   document.getElementById('pin-days').textContent=left>0?`${left} 天`:'考试日';
   document.getElementById('pin-left').textContent=left;
-  document.getElementById('count-label').textContent=`距 ${e.examDateLabel} 考试`;
-  document.getElementById('prog-bar').style.width=`${Math.round(passed/total*100)}%`;
-  document.getElementById('countdown-num').textContent=left;
-  document.getElementById('countdown-sub').textContent=left>0?'先清今天，不把债留给明天':'Done，回看错题和薄弱点';
+  document.getElementById('prog-bar').style.width=`${Math.round(passed*100)}%`;
+  updateCountdown();
   const tasks=tasksFor(d), checks=loadChecks(d);
   if(!tasks.some(t=>t.id===selectedTaskByExam[activeExamId])) selectedTaskByExam[activeExamId]=tasks[0]?.id;
   renderTip(tasks);
@@ -348,6 +368,17 @@ function renderToday(){
   renderQuickLinks();
   renderPrepHub();
   refreshMobilePin();
+}
+function updateCountdown(){
+  const e=exam(), target=examTargetDate(), now=Date.now(), ms=Math.max(0,target.getTime()-now), days=ms/DAY_MS, whole=Math.ceil(days);
+  const label=document.getElementById('count-label'), num=document.getElementById('countdown-num'), sub=document.getElementById('countdown-sub');
+  if(label)label.textContent=`距 ${examDateText()} 考试`;
+  if(num)num.textContent=formatCountdownDays(days);
+  if(sub)sub.textContent=ms>0?'数字在动，今天就别欠账':'Done，回看错题和薄弱点';
+  const pinDays=document.getElementById('pin-days'), pinLeft=document.getElementById('pin-left'), statLeft=document.getElementById('s-left');
+  if(pinDays)pinDays.textContent=ms>0?`${whole} 天`:'考试日';
+  if(pinLeft)pinLeft.textContent=whole;
+  if(statLeft)statLeft.textContent=whole;
 }
 function renderTip(tasks){
   const selected=tasks.find(t=>t.id===selectedTaskByExam[activeExamId])||tasks[0];
@@ -443,7 +474,7 @@ function copyPrep(id){
   }
 }
 function renderStats(){
-  const e=exam(), d=today(), start=parseDate(e.start), end=parseDate(e.end), last=d<end?d:end;
+  const e=exam(), d=today(), start=parseDate(e.start), end=examEndDate(), last=d<end?d:end;
   let doneDays=0,curStreak=0,total=0,done=0;
   for(let day=start;day<=last;day=addDays(day,1)){
     const tasks=tasksFor(day), checks=loadChecks(day), c=countDone(tasks,checks);
@@ -459,7 +490,7 @@ function renderStats(){
   document.getElementById('pin-rate').textContent=`${todayDone}/${todayTasks.length}`;
 }
 function renderCalendar(){
-  const e=exam(), grid=document.getElementById('cal-grid'), t=today(), end=parseDate(e.end);
+  const e=exam(), grid=document.getElementById('cal-grid'), t=today(), end=examEndDate();
   const selected=parseDate(selectedCalKey);
   if(selected.getFullYear()!==calMonth.getFullYear()||selected.getMonth()!==calMonth.getMonth()){
     const inMonth=t.getFullYear()===calMonth.getFullYear()&&t.getMonth()===calMonth.getMonth();
@@ -490,7 +521,7 @@ function calendarInfo(date){
 }
 function moveMonth(dir){calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+dir,1);renderCalendar()}
 function renderList(){
-  const e=exam(), start=parseDate(e.start), end=parseDate(e.end), total=daysBetween(start,end), c=document.getElementById('list-container');
+  const e=exam(), start=parseDate(e.start), end=examEndDate(), total=daysBetween(start,end), c=document.getElementById('list-container');
   c.innerHTML='<div class="section-title">里程碑</div>';
   const ms=e.phases.map((p,i)=>({date:addDays(start,Math.round(total*p.at)),name:p.name,desc:p.desc,type:i===e.phases.length-1?'exam':''}));
   const mgrid=document.createElement('div');mgrid.className='milestones';c.appendChild(mgrid);
@@ -505,7 +536,7 @@ function renderList(){
   }
 }
 function renderPlan(){
-  const e=exam(), start=parseDate(e.start), end=parseDate(e.end), total=daysBetween(start,end), cur=phaseIndex(today());
+  const e=exam(), start=parseDate(e.start), end=examEndDate(), total=daysBetween(start,end), cur=phaseIndex(today());
   const box=document.getElementById('plan-container');box.innerHTML='';
   e.phases.forEach((p,i)=>{const card=document.createElement('div');card.className='phase-card '+(i===cur?'active-phase':'inactive');const date=addDays(start,Math.round(total*p.at));card.innerHTML=`<h3>${escapeHTML(p.name)}</h3><time>${date.toLocaleDateString('zh-CN',{month:'long',day:'numeric'})}</time><p>${escapeHTML(p.desc)}</p>`;box.appendChild(card)});
   const res=document.getElementById('resource-container');res.innerHTML='';e.resources.forEach(r=>{const el=document.createElement('span');el.className='res-tag';el.textContent=r;res.appendChild(el)});
@@ -576,7 +607,7 @@ function askSyncConflict(local,remote){
     const cancel=document.getElementById('confirm-cancel');
     if(!layer||!ok||!cancel){resolve(window.confirm('检测到本机和云端数据不一致。确认保留本机？取消则保留云端。'));return}
     const stats=syncDiffStats(local,remote);
-    const kinds=['打卡','大合集','设置'].map(kind=>{
+    const kinds=['打卡','大合集','考试时间','设置'].map(kind=>{
       const row=stats.kinds[kind]||{local:0,remote:0,diff:0};
       return `<div class="sync-kind"><b>${kind}</b><span>本机 ${row.local}</span><span>云端 ${row.remote}</span><em>${row.diff} 处差异</em></div>`;
     }).join('');
@@ -815,6 +846,12 @@ async function downloadCloud(){
 function renderSettings(){
   const theme=localStorage.getItem('theme')||'auto';
   ['auto','light','dark'].forEach(t=>document.getElementById('th-'+t).classList.toggle('active',theme===t));
+  const timeInput=document.getElementById('exam-time-input');
+  const timeTitle=document.getElementById('exam-time-title');
+  const timeSub=document.getElementById('exam-time-sub');
+  if(timeInput)timeInput.value=getExamDateTimeValue();
+  if(timeTitle)timeTitle.textContent=`${exam().name} 考试时间`;
+  if(timeSub)timeSub.textContent=`当前：${examDateText()}。默认：${defaultExamDateText()}。改动后会同步到云端。`;
   const storage=document.getElementById('storage-status');
   if(storage)storage.textContent=cloudUser?'localStorage + Supabase 云端同步':'localStorage，本机本浏览器记录。配置 Supabase 后可云端同步。';
   renderAccount();
@@ -840,6 +877,21 @@ function toggleAccountPanel(){
 function closeAccountPanel(){
   document.getElementById('account-panel')?.classList.remove('open');
 }
+function setExamTime(value){
+  if(!value)return;
+  const key=examTimeKey();
+  localStorage.setItem(key,value);
+  syncKeyToCloud(key);
+  notify(`${exam().name} 已改为 ${examDateText()}`,'good','考试时间已保存');
+  renderAll();
+}
+function resetExamTime(){
+  const key=examTimeKey();
+  localStorage.setItem(key,defaultExamDateTime());
+  syncKeyToCloud(key);
+  notify(`${exam().name} 已恢复默认时间`,'good','考试时间已保存');
+  renderAll();
+}
 function setTheme(t){localStorage.setItem('theme',t);syncKeyToCloud('theme');applyTheme(t);renderSettings()}
 function applyTheme(t){
   if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t);
@@ -861,6 +913,7 @@ async function clearData(){if(!await askConfirm(`确认清除 ${exam().name} 的
 applyTheme(localStorage.getItem('theme')||'auto');
 initCloud();
 renderAll();
+countdownTimer=setInterval(updateCountdown,1000);
 window.addEventListener('scroll',refreshMobilePin,{passive:true});
 document.addEventListener('scroll',refreshMobilePin,{passive:true,capture:true});
 window.addEventListener('resize',refreshMobilePin);
