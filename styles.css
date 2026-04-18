@@ -102,6 +102,27 @@ body.cloud-logged-in .logged-out-only,body.cloud-logged-in .offline-only{display
 body:not(.cloud-logged-in) .cloud-only{display:none}
 body.offline-mode .logged-out-only{display:none}
 body:not(.offline-mode) .offline-only{display:none}
+body.offline-mode .account-form{display:none}
+.toast-stack{position:fixed;right:22px;top:22px;z-index:4000;display:grid;gap:10px;width:min(360px,calc(100vw - 28px));pointer-events:none}
+.toast{position:relative;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--panel) 94%,transparent);backdrop-filter:blur(18px);box-shadow:0 18px 44px rgba(0,0,0,.14);padding:12px 42px 12px 14px;display:grid;gap:2px;animation:toastIn .22s cubic-bezier(.2,1.18,.35,1) both;overflow:hidden}
+.toast:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+.toast.good:before{background:var(--good)}
+.toast.warn:before{background:var(--warn)}
+.toast.bad:before{background:var(--bad)}
+.toast-title{font-size:15px;font-weight:950;color:var(--text)}
+.toast-msg{font-size:13px;color:var(--muted);font-weight:800;line-height:1.45}
+.toast-count{position:absolute;right:10px;top:10px;min-width:22px;height:22px;border-radius:999px;background:var(--accent);color:#fff;font-size:12px;font-weight:950;display:none;place-items:center}
+.toast.bump{animation:toastBump .24s ease both}
+.toast.multi .toast-count{display:grid}
+@keyframes toastIn{from{opacity:0;transform:translateY(-12px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-8px) scale(.96)}}
+@keyframes toastBump{50%{transform:translateY(-2px) scale(1.025)}}
+.confirm-layer{position:fixed;inset:0;z-index:3900;display:none;place-items:center;padding:22px;background:rgba(0,0,0,.24);backdrop-filter:blur(10px)}
+.confirm-layer.open{display:grid}
+.confirm-card{width:min(420px,100%);border:1px solid var(--line);border-radius:10px;background:var(--panel);box-shadow:0 24px 70px rgba(0,0,0,.24);padding:18px;display:grid;gap:12px;animation:enter .16s ease both}
+.confirm-title{font-size:21px;font-weight:950}
+.confirm-message{font-size:15px;color:var(--muted);font-weight:750;line-height:1.55}
+.confirm-actions{display:flex;justify-content:flex-end;gap:8px}
 .view{display:none}
 .view.active{display:block;animation:enter .18s ease both}
 @keyframes enter{from{opacity:.6;transform:translateY(5px)}to{opacity:1;transform:none}}
@@ -254,6 +275,7 @@ body:not(.offline-mode) .offline-only{display:none}
   .account-btn{height:44px;min-width:58px;padding:0 10px}
   .theme-btn{display:none}
   .account-panel{top:82px;left:14px;right:14px;width:auto}
+  .toast-stack{top:14px;left:14px;right:14px;width:auto}
   .mobile-today-pin{position:sticky;top:73px;z-index:930;display:grid;gap:7px;margin:0 0 12px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(18px);box-shadow:0 10px 28px rgba(0,0,0,.08)}
   .pin-top,.pin-stats{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .pin-phase{font-size:16px;font-weight:950;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

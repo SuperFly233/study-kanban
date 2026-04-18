@@ -7,6 +7,7 @@ let cloudClient=null;
 let cloudUser=null;
 let cloudBusy=false;
 let passwordRecoveryMode=false;
+const toastState=new Map();
 const EXAMS={
   cet6:{
     name:'CET-6 六级',
@@ -485,6 +486,56 @@ function renderPlan(){
   const res=document.getElementById('resource-container');res.innerHTML='';e.resources.forEach(r=>{const el=document.createElement('span');el.className='res-tag';el.textContent=r;res.appendChild(el)});
 }
 function supabaseConfigured(){return Boolean(SUPABASE_CONFIG.url&&SUPABASE_CONFIG.anonKey&&window.supabase)}
+function notify(message,type='good',title='提示'){
+  const stack=document.getElementById('toast-stack');
+  if(!stack){console.log(message);return}
+  const key=`${type}:${title}:${message}`;
+  const old=toastState.get(key);
+  if(old){
+    old.count+=1;
+    old.el.classList.add('multi','bump');
+    old.el.querySelector('.toast-count').textContent=`×${old.count}`;
+    clearTimeout(old.timer);
+    old.timer=setTimeout(()=>dismissToast(key),3200);
+    setTimeout(()=>old.el.classList.remove('bump'),260);
+    return;
+  }
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  el.innerHTML=`<div class="toast-title">${escapeHTML(title)}</div><div class="toast-msg">${escapeHTML(message)}</div><div class="toast-count">×1</div>`;
+  stack.appendChild(el);
+  const timer=setTimeout(()=>dismissToast(key),3200);
+  toastState.set(key,{el,count:1,timer});
+}
+function dismissToast(key){
+  const item=toastState.get(key);
+  if(!item)return;
+  item.el.style.animation='toastOut .18s ease both';
+  setTimeout(()=>item.el.remove(),180);
+  toastState.delete(key);
+}
+function askConfirm(message,title='确认操作'){
+  return new Promise(resolve=>{
+    const layer=document.getElementById('confirm-layer');
+    const titleEl=document.getElementById('confirm-title');
+    const msgEl=document.getElementById('confirm-message');
+    const ok=document.getElementById('confirm-ok');
+    const cancel=document.getElementById('confirm-cancel');
+    if(!layer||!ok||!cancel){resolve(window.confirm(message));return}
+    titleEl.textContent=title;
+    msgEl.textContent=message;
+    layer.classList.add('open');
+    const close=value=>{
+      layer.classList.remove('open');
+      ok.onclick=null;
+      cancel.onclick=null;
+      resolve(value);
+    };
+    ok.onclick=()=>close(true);
+    cancel.onclick=()=>close(false);
+    layer.onclick=ev=>{if(ev.target===layer)close(false)};
+  });
+}
 function setCloudStatus(text){
   const account=document.getElementById('account-status');
   const auth=document.getElementById('auth-status');
@@ -503,7 +554,7 @@ function offlineMode(){return localStorage.getItem('offline_mode')==='1'}
 function canEnterApp(){return Boolean(cloudUser)||offlineMode()}
 function renderAuthGate(){document.body.classList.toggle('auth-required',!canEnterApp());document.body.classList.toggle('offline-mode',offlineMode()&&!cloudUser)}
 function useOfflineMode(){localStorage.setItem('offline_mode','1');renderAccount();renderAll()}
-function exitOfflineMode(){localStorage.removeItem('offline_mode');closeAccountPanel();renderAccount()}
+function exitOfflineMode(){localStorage.removeItem('offline_mode');closeAccountPanel();renderAccount();notify('已回到登录入口','good','离线模式已退出')}
 async function initCloud(){
   if(!supabaseConfigured()){setCloudStatus('Supabase 未配置');return}
   cloudClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.anonKey,{
@@ -528,68 +579,68 @@ async function initCloud(){
   renderSettings();
 }
 function cloudReady(){
-  if(!cloudClient){alert('Supabase 还没配置。先把 Project URL 和 anon key 填到 app.js 的 SUPABASE_CONFIG。');return false}
-  if(!cloudUser){alert('请先用邮箱登录云端账号。');return false}
+  if(!cloudClient){notify('Supabase 还没配置。先把 Project URL 和 anon key 填到 app.js 的 SUPABASE_CONFIG。','bad','云端不可用');return false}
+  if(!cloudUser){notify('请先用邮箱登录云端账号。','warn','还没登录');return false}
   return true;
 }
 async function loginCloud(source='account'){
-  if(!cloudClient){alert('Supabase 还没配置。');return}
+  if(!cloudClient){notify('Supabase 还没配置。','bad','云端不可用');return}
   const {email}=cloudCredentials(source);
-  if(!email){alert('先输入邮箱');return}
+  if(!email){notify('先输入邮箱','warn','缺少邮箱');return}
   const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:authRedirectTo()}});
-  if(error){alert(error.message);return}
-  alert('登录链接已发送，去邮箱点一下。');
+  if(error){notify(error.message,'bad','发送失败');return}
+  notify('登录链接已发送，去邮箱点一下。','good','邮件已发送');
 }
 async function signupPassword(source='account'){
-  if(!cloudClient){alert('Supabase 还没配置。');return}
+  if(!cloudClient){notify('Supabase 还没配置。','bad','云端不可用');return}
   const {email,password}=cloudCredentials(source);
-  if(!email||!password){alert('请输入邮箱和密码');return}
-  if(password.length<6){alert('密码至少 6 位');return}
+  if(!email||!password){notify('请输入邮箱和密码','warn','信息不完整');return}
+  if(password.length<6){notify('密码至少 6 位','warn','密码太短');return}
   const {data,error}=await cloudClient.auth.signUp({email,password,options:{emailRedirectTo:authRedirectTo()}});
-  if(error){alert(error.message);return}
+  if(error){notify(error.message,'bad','注册失败');return}
   cloudUser=data.session?.user||cloudUser;
   if(cloudUser)localStorage.removeItem('offline_mode');
   renderSettings();
-  alert(data.session?'注册成功，已登录。':'注册邮件已发送，去邮箱确认后再登录。');
+  notify(data.session?'注册成功，已登录。':'注册邮件已发送，去邮箱确认后再登录。','good','注册成功');
 }
 async function loginPassword(source='account'){
-  if(!cloudClient){alert('Supabase 还没配置。');return}
+  if(!cloudClient){notify('Supabase 还没配置。','bad','云端不可用');return}
   const {email,password}=cloudCredentials(source);
-  if(!email||!password){alert('请输入邮箱和密码');return}
+  if(!email||!password){notify('请输入邮箱和密码','warn','信息不完整');return}
   const {data,error}=await cloudClient.auth.signInWithPassword({email,password});
-  if(error){alert(error.message);return}
+  if(error){notify(error.message,'bad','登录失败');return}
   cloudUser=data.session?.user||null;
   passwordRecoveryMode=false;
   if(cloudUser)localStorage.removeItem('offline_mode');
   renderSettings();
-  alert('登录成功');
+  notify('欢迎回来，今天继续推进。','good','登录成功');
 }
 async function setCloudPassword(){
-  if(!cloudClient){alert('Supabase 还没配置。');return}
-  if(!cloudUser){alert('请先通过邮箱链接登录，或打开忘记密码邮件后再设置新密码。');return}
+  if(!cloudClient){notify('Supabase 还没配置。','bad','云端不可用');return}
+  if(!cloudUser){notify('请先通过邮箱链接登录，或打开忘记密码邮件后再设置新密码。','warn','还没登录');return}
   const email=cloudUser.email;
   const {password}=cloudCredentials('account');
-  if(!password){alert('请输入新密码');return}
-  if(password.length<6){alert('密码至少 6 位');return}
+  if(!password){notify('请输入新密码','warn','缺少密码');return}
+  if(password.length<6){notify('密码至少 6 位','warn','密码太短');return}
   const {error}=await cloudClient.auth.updateUser({password});
-  if(error){alert(error.message);return}
+  if(error){notify(error.message,'bad','设置失败');return}
   const {error:logoutError}=await cloudClient.auth.signOut();
-  if(logoutError){alert(logoutError.message);return}
+  if(logoutError){notify(logoutError.message,'bad','验证失败');return}
   const {data,error:loginError}=await cloudClient.auth.signInWithPassword({email,password});
-  if(loginError){cloudUser=null;renderSettings();alert(`密码已提交，但自动验证失败：${loginError.message}`);return}
+  if(loginError){cloudUser=null;renderSettings();notify(`密码已提交，但自动验证失败：${loginError.message}`,'bad','验证失败');return}
   cloudUser=data.session?.user||null;
   passwordRecoveryMode=false;
   localStorage.removeItem('offline_mode');
   renderSettings();
-  alert('密码已设置并验证成功。以后可以直接密码登录。');
+  notify('以后可以直接密码登录。','good','密码已验证');
 }
 async function resetCloudPassword(source='account'){
-  if(!cloudClient){alert('Supabase 还没配置。');return}
+  if(!cloudClient){notify('Supabase 还没配置。','bad','云端不可用');return}
   const {email}=cloudCredentials(source);
-  if(!email){alert('先输入邮箱');return}
+  if(!email){notify('先输入邮箱','warn','缺少邮箱');return}
   const {error}=await cloudClient.auth.resetPasswordForEmail(email,{redirectTo:authRedirectTo()});
-  if(error){alert(error.message);return}
-  alert('密码重置邮件已发送。打开邮件后回到这里输入新密码，再点“设置密码”。');
+  if(error){notify(error.message,'bad','发送失败');return}
+  notify('打开邮件后回到这里输入新密码，再点“设置密码”。','good','重置邮件已发送');
 }
 async function logoutCloud(){
   if(!cloudClient)return;
@@ -615,19 +666,19 @@ async function uploadCloud(){
   const rows=Object.entries(syncableItems()).map(([key,raw])=>({user_id:cloudUser.id,key,value:{raw}}));
   const {error}=await cloudClient.from('study_store').upsert(rows,{onConflict:'user_id,key'});
   cloudBusy=false;
-  if(error){alert(error.message);return}
-  alert(`已上传 ${rows.length} 条本机数据`);
+  if(error){notify(error.message,'bad','上传失败');return}
+  notify(`已上传 ${rows.length} 条本机数据`,'good','上传完成');
 }
 async function downloadCloud(){
   if(!cloudReady())return;
-  if(!confirm('确认用云端数据覆盖当前浏览器本地数据？'))return;
+  if(!await askConfirm('确认用云端数据覆盖当前浏览器本地数据？','恢复云端'))return;
   cloudBusy=true;
   const {data,error}=await cloudClient.from('study_store').select('key,value').eq('user_id',cloudUser.id);
-  if(error){cloudBusy=false;alert(error.message);return}
+  if(error){cloudBusy=false;notify(error.message,'bad','恢复失败');return}
   (data||[]).forEach(row=>{if(syncableKey(row.key))localStorage.setItem(row.key,String(row.value?.raw??''))});
   cloudBusy=false;
   activeExamId=localStorage.getItem('active_exam')||activeExamId;
-  alert(`已恢复 ${data?.length||0} 条云端数据`);
+  notify(`已恢复 ${data?.length||0} 条云端数据`,'good','恢复完成');
   renderAll();
 }
 function renderSettings(){
@@ -672,8 +723,8 @@ function applyTheme(t){
 }
 function cycleTheme(){const cur=localStorage.getItem('theme')||'auto', order=['auto','light','dark'];setTheme(order[(order.indexOf(cur)+1)%3])}
 function exportData(){const data={activeExamId,items:syncableItems()};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='study-kanban-backup.json';a.click()}
-function importData(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const data=JSON.parse(ev.target.result);Object.entries(data.items||{}).forEach(([k,v])=>{if(syncableKey(k))localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v))});alert('导入成功');renderAll()}catch{alert('文件格式错误')}};reader.readAsText(file)}
-async function clearData(){if(!confirm(`确认清除 ${exam().name} 的打卡记录和大合集内容？`))return;const prefixes=[`checks_${activeExamId}_`,`prep_${activeExamId}_`];const keys=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(prefixes.some(p=>k.startsWith(p)))keys.push(k)}keys.forEach(k=>localStorage.removeItem(k));if(cloudClient&&cloudUser&&keys.length){await cloudClient.from('study_store').delete().eq('user_id',cloudUser.id).in('key',keys)}renderAll()}
+function importData(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const data=JSON.parse(ev.target.result);Object.entries(data.items||{}).forEach(([k,v])=>{if(syncableKey(k))localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v))});notify('导入成功','good','已恢复备份');renderAll()}catch{notify('文件格式错误','bad','导入失败')}};reader.readAsText(file)}
+async function clearData(){if(!await askConfirm(`确认清除 ${exam().name} 的打卡记录和大合集内容？`,'清除当前考试'))return;const prefixes=[`checks_${activeExamId}_`,`prep_${activeExamId}_`];const keys=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(prefixes.some(p=>k.startsWith(p)))keys.push(k)}keys.forEach(k=>localStorage.removeItem(k));if(cloudClient&&cloudUser&&keys.length){await cloudClient.from('study_store').delete().eq('user_id',cloudUser.id).in('key',keys)}notify('当前考试数据已清除','good','清除完成');renderAll()}
 
 applyTheme(localStorage.getItem('theme')||'auto');
 initCloud();
