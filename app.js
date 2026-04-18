@@ -1,7 +1,7 @@
 ﻿const DAY_MS=86400000;
 const SUPABASE_CONFIG={
-  url:'',
-  anonKey:'',
+  url:'https://uoifrqehkfvpzqojaazh.supabase.co',
+  anonKey:'sb_publishable_G-_4O-n-Q73TbJ4R2YmG9w_7WlKHC80',
 };
 let cloudClient=null;
 let cloudUser=null;
