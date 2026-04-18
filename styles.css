@@ -171,8 +171,9 @@ body.cloud-logged-in .account-form #account-email{display:none}
 .countdown:after{content:"";position:absolute;right:-50px;bottom:-68px;width:178px;height:178px;border:28px solid rgba(255,255,255,.14);border-radius:50%}
 .count-label{font-size:17px;font-weight:850;opacity:.9;position:relative;z-index:1}
 .count-main{position:relative;z-index:1;display:flex;align-items:flex-end;gap:8px;font-weight:950;line-height:.9}
-.count-main strong{font-size:clamp(46px,5.2vw,76px);font-variant-numeric:tabular-nums;letter-spacing:0;white-space:nowrap;display:flex;align-items:flex-end;gap:0}
-.count-frac,.count-dot{font-size:.58em;line-height:1.06;margin-bottom:.05em;opacity:.86}
+.count-main strong{font-size:86px;font-variant-numeric:tabular-nums;letter-spacing:0;white-space:nowrap;display:flex;align-items:flex-end;gap:0}
+.count-int{font-size:1em;line-height:1}
+.count-frac,.count-dot{font-size:.52em;line-height:1.06;margin-bottom:.07em;opacity:.88}
 .count-main span{font-size:26px;margin-bottom:8px}
 .count-sub{position:relative;z-index:1;font-size:16px;font-weight:700;opacity:.86}
 .tip{margin-top:12px;padding:13px 18px;display:flex;gap:12px;align-items:flex-start;box-shadow:none}
@@ -327,7 +328,7 @@ body.cloud-logged-in .account-form #account-email{display:none}
   .pin-stats strong{font-size:14px;color:var(--text)}
   .hero-main{padding:20px}
   .phase-title{font-size:31px}
-  .count-main strong{font-size:42px}
+  .count-main strong{font-size:64px}
   .stat-row{grid-template-columns:1fr}
   .stat{border-right:0;border-bottom:1px solid var(--line)}
   .stat:last-child{border-bottom:0}
