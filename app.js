@@ -503,6 +503,7 @@ function offlineMode(){return localStorage.getItem('offline_mode')==='1'}
 function canEnterApp(){return Boolean(cloudUser)||offlineMode()}
 function renderAuthGate(){document.body.classList.toggle('auth-required',!canEnterApp());document.body.classList.toggle('offline-mode',offlineMode()&&!cloudUser)}
 function useOfflineMode(){localStorage.setItem('offline_mode','1');renderAccount();renderAll()}
+function exitOfflineMode(){localStorage.removeItem('offline_mode');closeAccountPanel();renderAccount()}
 async function initCloud(){
   if(!supabaseConfigured()){setCloudStatus('Supabase 未配置');return}
   cloudClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.anonKey,{

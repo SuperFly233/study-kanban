@@ -58,9 +58,13 @@ body.auth-required .sidebar,body.auth-required .app{display:none}
 .auth-card p{font-size:16px;color:var(--muted);font-weight:700;line-height:1.55}
 .auth-form{display:grid;gap:10px;margin-top:4px}
 .auth-main-btn{min-height:50px;font-size:18px}
-.auth-options{display:flex;flex-wrap:wrap;gap:8px}
-.auth-options button{border:0;background:transparent;color:var(--muted);font-size:14px;font-weight:900;padding:4px 2px}
-.auth-options button:hover{color:var(--accent)}
+.auth-links{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.auth-links button{border:0;background:transparent;color:var(--muted);font-size:14px;font-weight:900;padding:4px 0}
+.auth-divider{display:flex;align-items:center;gap:10px;color:var(--soft);font-size:13px;font-weight:900}
+.auth-divider:before,.auth-divider:after{content:"";height:1px;background:var(--line);flex:1}
+.auth-alt{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.auth-alt button{border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:14px;font-weight:900;padding:9px 10px}
+.auth-links button:hover,.auth-alt button:hover{color:var(--accent);border-color:var(--accent)}
 .auth-note{border-top:1px solid var(--line);padding-top:11px;font-size:14px;color:var(--soft);font-weight:800;line-height:1.45}
 .app{max-width:var(--max);margin:0 auto;padding:22px 28px 44px 256px}
 .sidebar{position:fixed;left:max(24px,calc((100vw - var(--max))/2 + 24px));top:22px;bottom:22px;width:204px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:16px}
@@ -94,8 +98,10 @@ body.auth-required .sidebar,body.auth-required .app{display:none}
 .account-actions .plain-btn{min-width:0}
 .primary-btn{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
 .ghost-btn{color:var(--muted)}
-body:not(.cloud-logged-in) .logged-in-only{display:none}
-body.cloud-logged-in .logged-out-only{display:none}
+body.cloud-logged-in .logged-out-only,body.cloud-logged-in .offline-only{display:none}
+body:not(.cloud-logged-in) .cloud-only{display:none}
+body.offline-mode .logged-out-only{display:none}
+body:not(.offline-mode) .offline-only{display:none}
 .view{display:none}
 .view.active{display:block;animation:enter .18s ease both}
 @keyframes enter{from{opacity:.6;transform:translateY(5px)}to{opacity:1;transform:none}}
@@ -278,6 +284,7 @@ body.cloud-logged-in .logged-out-only{display:none}
   .seg button{min-height:50px;font-size:18px;padding:10px 8px}
   .cloud-actions{display:grid;grid-template-columns:1fr;width:100%;justify-content:stretch}
   .account-actions{grid-template-columns:1fr}
+  .auth-alt{grid-template-columns:1fr}
   .cloud-input{width:100%;min-width:0;min-height:52px;font-size:17px}
   .plain-btn,.danger-btn{width:100%;min-height:56px;font-size:20px;padding:12px 16px}
 }
