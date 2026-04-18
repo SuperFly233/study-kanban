@@ -7,6 +7,7 @@ let cloudClient=null;
 let cloudUser=null;
 let cloudBusy=false;
 let passwordRecoveryMode=false;
+let cloudBootstrapped=false;
 const toastState=new Map();
 const EXAMS={
   cet6:{
@@ -194,6 +195,9 @@ function syncableItems(){
   }
   return items;
 }
+function cloudRawMap(rows){const out={};(rows||[]).forEach(row=>{if(syncableKey(row.key))out[row.key]=String(row.value?.raw??'')});return out}
+function mapsEqual(a,b){const keys=new Set([...Object.keys(a),...Object.keys(b)]);for(const key of keys){if((a[key]??null)!==(b[key]??null))return false}return true}
+function countStudyKeys(items){return Object.keys(items).filter(k=>k.startsWith('checks_')||k.startsWith('prep_')).length}
 function taskDone(task,checks){return checks.includes(task.id)||(task.aliases||[]).some(a=>checks.includes(a)||checks.includes(a.replace(/\s/g,'_')))}
 function countDone(tasks,checks){return tasks.filter(t=>taskDone(t,checks)).length}
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -555,6 +559,11 @@ function canEnterApp(){return Boolean(cloudUser)||offlineMode()}
 function renderAuthGate(){document.body.classList.toggle('auth-required',!canEnterApp());document.body.classList.toggle('offline-mode',offlineMode()&&!cloudUser)}
 function useOfflineMode(){localStorage.setItem('offline_mode','1');renderAccount();renderAll()}
 function exitOfflineMode(){localStorage.removeItem('offline_mode');closeAccountPanel();renderAccount();notify('已回到登录入口','good','离线模式已退出')}
+async function afterCloudLogin(){
+  localStorage.removeItem('offline_mode');
+  renderSettings();
+  if(!cloudBootstrapped)await bootstrapCloudSync();
+}
 async function initCloud(){
   if(!supabaseConfigured()){setCloudStatus('Supabase 未配置');return}
   cloudClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.anonKey,{
@@ -575,8 +584,7 @@ async function initCloud(){
   }
   const {data}=await cloudClient.auth.getSession();
   cloudUser=data.session?.user||null;
-  if(cloudUser)localStorage.removeItem('offline_mode');
-  renderSettings();
+  if(cloudUser)await afterCloudLogin();else renderSettings();
 }
 function cloudReady(){
   if(!cloudClient){notify('Supabase 还没配置。先把 Project URL 和 anon key 填到 app.js 的 SUPABASE_CONFIG。','bad','云端不可用');return false}
@@ -599,8 +607,7 @@ async function signupPassword(source='account'){
   const {data,error}=await cloudClient.auth.signUp({email,password,options:{emailRedirectTo:authRedirectTo()}});
   if(error){notify(error.message,'bad','注册失败');return}
   cloudUser=data.session?.user||cloudUser;
-  if(cloudUser)localStorage.removeItem('offline_mode');
-  renderSettings();
+  if(cloudUser)await afterCloudLogin();else renderSettings();
   notify(data.session?'注册成功，已登录。':'注册邮件已发送，去邮箱确认后再登录。','good','注册成功');
 }
 async function loginPassword(source='account'){
@@ -611,13 +618,18 @@ async function loginPassword(source='account'){
   if(error){notify(error.message,'bad','登录失败');return}
   cloudUser=data.session?.user||null;
   passwordRecoveryMode=false;
-  if(cloudUser)localStorage.removeItem('offline_mode');
-  renderSettings();
+  if(cloudUser)await afterCloudLogin();else renderSettings();
   notify('欢迎回来，今天继续推进。','good','登录成功');
 }
 async function setCloudPassword(){
   if(!cloudClient){notify('Supabase 还没配置。','bad','云端不可用');return}
   if(!cloudUser){notify('请先通过邮箱链接登录，或打开忘记密码邮件后再设置新密码。','warn','还没登录');return}
+  if(!passwordRecoveryMode){
+    passwordRecoveryMode=true;
+    renderAccount();
+    notify('输入新密码后，再点一次“重设密码”。','good','准备重设密码');
+    return;
+  }
   const email=cloudUser.email;
   const {password}=cloudCredentials('account');
   if(!password){notify('请输入新密码','warn','缺少密码');return}
@@ -630,8 +642,7 @@ async function setCloudPassword(){
   if(loginError){cloudUser=null;renderSettings();notify(`密码已提交，但自动验证失败：${loginError.message}`,'bad','验证失败');return}
   cloudUser=data.session?.user||null;
   passwordRecoveryMode=false;
-  localStorage.removeItem('offline_mode');
-  renderSettings();
+  await afterCloudLogin();
   notify('以后可以直接密码登录。','good','密码已验证');
 }
 async function resetCloudPassword(source='account'){
@@ -646,6 +657,7 @@ async function logoutCloud(){
   if(!cloudClient)return;
   await cloudClient.auth.signOut();
   cloudUser=null;
+  cloudBootstrapped=false;
   passwordRecoveryMode=false;
   localStorage.removeItem('offline_mode');
   renderSettings();
@@ -659,6 +671,60 @@ async function syncKeyToCloud(key){
     key,
     value:{raw},
   },{onConflict:'user_id,key'});
+}
+async function uploadItemsToCloud(items){
+  const rows=Object.entries(items).map(([key,raw])=>({user_id:cloudUser.id,key,value:{raw}}));
+  if(!rows.length)return {count:0};
+  const {error}=await cloudClient.from('study_store').upsert(rows,{onConflict:'user_id,key'});
+  return {error,count:rows.length};
+}
+async function bootstrapCloudSync(){
+  if(!cloudClient||!cloudUser||cloudBusy)return;
+  cloudBootstrapped=true;
+  cloudBusy=true;
+  const local=syncableItems();
+  const {data,error}=await cloudClient.from('study_store').select('key,value').eq('user_id',cloudUser.id);
+  if(error){cloudBusy=false;notify(error.message,'bad','同步失败');return}
+  const remote=cloudRawMap(data);
+  if(!Object.keys(remote).length){
+    const result=await uploadItemsToCloud(local);
+    cloudBusy=false;
+    if(result.error)notify(result.error.message,'bad','同步失败');else notify(`已保存 ${result.count} 条本机数据到云端`,'good','已自动同步');
+    return;
+  }
+  if(mapsEqual(local,remote)){
+    cloudBusy=false;
+    notify('本机和云端已经一致','good','已自动同步');
+    return;
+  }
+  const localScore=countStudyKeys(local), remoteScore=countStudyKeys(remote);
+  if(localScore>remoteScore){
+    const result=await uploadItemsToCloud(local);
+    cloudBusy=false;
+    if(result.error)notify(result.error.message,'bad','同步失败');else notify('检测到本机数据更多，已自动覆盖云端。','good','已保留本机');
+    return;
+  }
+  if(remoteScore>localScore){
+    Object.entries(remote).forEach(([key,raw])=>localStorage.setItem(key,raw));
+    cloudBusy=false;
+    activeExamId=localStorage.getItem('active_exam')||activeExamId;
+    notify('检测到云端数据更多，已自动恢复到本机。','good','已保留云端');
+    renderAll();
+    return;
+  }
+  cloudBusy=false;
+  const keepLocal=await askConfirm('本机和云端都有不同数据，数量接近。确认保留本机并覆盖云端？选择取消则恢复云端。','同步冲突');
+  cloudBusy=true;
+  if(keepLocal){
+    const result=await uploadItemsToCloud(local);
+    if(result.error)notify(result.error.message,'bad','同步失败');else notify('已保留本机并覆盖云端。','good','同步完成');
+  }else{
+    Object.entries(remote).forEach(([key,raw])=>localStorage.setItem(key,raw));
+    activeExamId=localStorage.getItem('active_exam')||activeExamId;
+    notify('已恢复云端数据。','good','同步完成');
+    renderAll();
+  }
+  cloudBusy=false;
 }
 async function uploadCloud(){
   if(!cloudReady())return;
@@ -690,6 +756,7 @@ function renderSettings(){
 }
 function renderAccount(){
   document.body.classList.toggle('cloud-logged-in',Boolean(cloudUser));
+  document.body.classList.toggle('password-recovery',passwordRecoveryMode);
   renderAuthGate();
   const btn=document.getElementById('account-toggle');
   if(btn){
