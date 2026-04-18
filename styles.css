@@ -170,11 +170,11 @@ body.cloud-logged-in .account-form #account-email{display:none}
 .countdown{position:relative;overflow:hidden;padding:24px 26px;background:linear-gradient(135deg,var(--accent),#17447d);color:#fff;display:grid;align-content:space-between}
 .countdown:after{content:"";position:absolute;right:-50px;bottom:-68px;width:178px;height:178px;border:28px solid rgba(255,255,255,.14);border-radius:50%}
 .count-label{font-size:17px;font-weight:850;opacity:.9;position:relative;z-index:1}
-.count-main{position:relative;z-index:1;display:flex;align-items:flex-end;gap:8px;font-weight:950;line-height:.9}
-.count-main strong{font-size:0;font-variant-numeric:tabular-nums;letter-spacing:0;white-space:nowrap;display:flex;align-items:flex-end;gap:0}
-.count-int{font-size:86px;line-height:1}
-.count-frac,.count-dot{font-size:26px;line-height:1;margin-bottom:8px;opacity:.92}
-.count-main span{font-size:26px;margin-bottom:8px}
+.count-main{position:relative;z-index:1;display:flex;align-items:flex-end;gap:8px;line-height:.9}
+#countdown-num{font-size:0;font-variant-numeric:tabular-nums;letter-spacing:0;white-space:nowrap;display:flex;align-items:flex-end;gap:0;font-weight:950}
+#countdown-num .count-int{font-size:86px;line-height:1;font-weight:950}
+#countdown-num .count-frac,#countdown-num .count-dot{font-size:26px;line-height:1;margin-bottom:8px;opacity:.92;font-weight:950}
+.count-main>span{font-size:26px;margin-bottom:8px;font-weight:950}
 .count-sub{position:relative;z-index:1;font-size:16px;font-weight:700;opacity:.86}
 .tip{margin-top:12px;padding:13px 18px;display:flex;gap:12px;align-items:flex-start;box-shadow:none}
 .tip b{font-size:15px;color:var(--accent);white-space:nowrap}
@@ -328,9 +328,9 @@ body.cloud-logged-in .account-form #account-email{display:none}
   .pin-stats strong{font-size:14px;color:var(--text)}
   .hero-main{padding:20px}
   .phase-title{font-size:31px}
-  .count-main strong{font-size:0}
-  .count-int{font-size:64px}
-  .count-frac,.count-dot{font-size:26px;margin-bottom:6px}
+  #countdown-num{font-size:0}
+  #countdown-num .count-int{font-size:64px}
+  #countdown-num .count-frac,#countdown-num .count-dot{font-size:26px;margin-bottom:6px}
   .stat-row{grid-template-columns:1fr}
   .stat{border-right:0;border-bottom:1px solid var(--line)}
   .stat:last-child{border-bottom:0}
