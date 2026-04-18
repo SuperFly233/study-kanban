@@ -115,12 +115,12 @@ body.cloud-logged-in .account-form #account-email{display:none}
 .toast.bad:before{background:var(--bad)}
 .toast-title{font-size:15px;font-weight:950;color:var(--text)}
 .toast-msg{font-size:13px;color:var(--muted);font-weight:800;line-height:1.45}
-.toast-count{position:absolute;right:10px;top:10px;min-width:22px;height:22px;border-radius:999px;background:var(--accent);color:#fff;font-size:12px;font-weight:950;display:none;place-items:center}
-.toast.bump{animation:toastBump .24s ease both}
+.toast-count{position:absolute;right:10px;top:10px;min-width:24px;height:24px;border-radius:8px;background:color-mix(in srgb,var(--panel) 86%,var(--accent-bg));border:1px solid color-mix(in srgb,var(--accent) 38%,var(--line));color:var(--accent);font-size:12px;font-weight:950;display:none;place-items:center;box-shadow:0 8px 18px rgba(0,0,0,.08)}
 .toast.multi .toast-count{display:grid}
+.toast.bump .toast-count{animation:toastBadge .22s ease both}
 @keyframes toastIn{from{opacity:0;transform:translateY(-12px) scale(.96)}to{opacity:1;transform:none}}
 @keyframes toastOut{to{opacity:0;transform:translateY(-8px) scale(.96)}}
-@keyframes toastBump{50%{transform:translateY(-2px) scale(1.025)}}
+@keyframes toastBadge{50%{transform:scale(1.18)}}
 .confirm-layer{position:fixed;inset:0;z-index:3900;display:none;place-items:center;padding:22px;background:rgba(0,0,0,.24);backdrop-filter:blur(10px)}
 .confirm-layer.open{display:grid}
 .confirm-card{width:min(420px,100%);border:1px solid var(--line);border-radius:10px;background:var(--panel);box-shadow:0 24px 70px rgba(0,0,0,.24);padding:18px;display:grid;gap:12px;animation:enter .16s ease both}
@@ -128,13 +128,20 @@ body.cloud-logged-in .account-form #account-email{display:none}
 .confirm-title{font-size:21px;font-weight:950}
 .confirm-message{font-size:15px;color:var(--muted);font-weight:750;line-height:1.55}
 .confirm-actions{display:flex;justify-content:flex-end;gap:8px}
-.sync-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.sync-pill{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel2);display:grid;gap:4px}
-.sync-pill strong{font-size:30px;line-height:1;font-weight:950;color:var(--text)}
-.sync-pill span{font-size:13px;font-weight:850;color:var(--muted)}
-.sync-pill.local{border-color:color-mix(in srgb,var(--accent) 42%,var(--line));background:color-mix(in srgb,var(--accent-bg) 48%,var(--panel))}
-.sync-pill.remote{border-color:color-mix(in srgb,var(--good) 42%,var(--line));background:color-mix(in srgb,var(--good) 12%,var(--panel))}
-.sync-pill.diff{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));background:color-mix(in srgb,var(--warn) 14%,var(--panel))}
+.sync-simple{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:stretch}
+.sync-side{border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--panel2);display:grid;gap:4px}
+.sync-side span{font-size:13px;font-weight:950;color:var(--muted)}
+.sync-side strong{font-size:34px;line-height:1;font-weight:950;color:var(--text)}
+.sync-side em{font-size:12px;color:var(--soft);font-style:normal;font-weight:850}
+.sync-side.local{border-color:color-mix(in srgb,var(--accent) 42%,var(--line));background:color-mix(in srgb,var(--accent-bg) 48%,var(--panel))}
+.sync-side.remote{border-color:color-mix(in srgb,var(--good) 42%,var(--line));background:color-mix(in srgb,var(--good) 12%,var(--panel))}
+.sync-vs{align-self:center;border:1px solid var(--line);border-radius:999px;padding:7px 10px;font-size:12px;color:var(--muted);font-weight:950;background:var(--panel)}
+.sync-plain{font-size:15px;color:var(--muted);font-weight:850;line-height:1.55;background:var(--panel2);border-radius:10px;padding:11px 12px}
+.sync-plain b{color:var(--text)}
+.sync-toggle{justify-self:start;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--accent);padding:8px 10px;font-size:13px;font-weight:950}
+.sync-detail{display:none;gap:8px}
+.sync-detail.open{display:grid}
+.sync-help{border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--panel) 72%,var(--panel2));padding:10px 12px;font-size:13px;color:var(--muted);font-weight:800;line-height:1.6}
 .sync-breakdown{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .sync-breakdown div{border:1px dashed var(--line);border-radius:10px;padding:9px 10px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .sync-breakdown b{font-size:20px;color:var(--text)}
@@ -144,7 +151,6 @@ body.cloud-logged-in .account-form #account-email{display:none}
 .sync-kind b{font-size:14px;color:var(--text)}
 .sync-kind span,.sync-kind em{font-size:12px;color:var(--muted);font-weight:850;font-style:normal}
 .sync-kind em{color:var(--accent)}
-.sync-choice-note{font-size:13px;color:var(--muted);font-weight:800;background:var(--panel2);border-radius:10px;padding:10px 12px}
 .sync-card .confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .sync-card .confirm-actions .plain-btn{width:100%;min-height:48px}
 .sync-card #confirm-ok{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
@@ -165,7 +171,8 @@ body.cloud-logged-in .account-form #account-email{display:none}
 .countdown:after{content:"";position:absolute;right:-50px;bottom:-68px;width:178px;height:178px;border:28px solid rgba(255,255,255,.14);border-radius:50%}
 .count-label{font-size:17px;font-weight:850;opacity:.9;position:relative;z-index:1}
 .count-main{position:relative;z-index:1;display:flex;align-items:flex-end;gap:8px;font-weight:950;line-height:.9}
-.count-main strong{font-size:clamp(46px,5.2vw,76px);font-variant-numeric:tabular-nums;letter-spacing:0;white-space:nowrap}
+.count-main strong{font-size:clamp(46px,5.2vw,76px);font-variant-numeric:tabular-nums;letter-spacing:0;white-space:nowrap;display:flex;align-items:flex-end;gap:0}
+.count-frac,.count-dot{font-size:.58em;line-height:1.06;margin-bottom:.05em;opacity:.86}
 .count-main span{font-size:26px;margin-bottom:8px}
 .count-sub{position:relative;z-index:1;font-size:16px;font-weight:700;opacity:.86}
 .tip{margin-top:12px;padding:13px 18px;display:flex;gap:12px;align-items:flex-start;box-shadow:none}
@@ -306,7 +313,8 @@ body.cloud-logged-in .account-form #account-email{display:none}
   .toast-stack{top:14px;left:14px;right:14px;width:auto}
   .confirm-layer{padding:14px}
   .confirm-card.sync-card{max-height:calc(100vh - 28px);overflow:auto}
-  .sync-summary,.sync-breakdown{grid-template-columns:1fr}
+  .sync-simple,.sync-breakdown{grid-template-columns:1fr}
+  .sync-vs{text-align:center}
   .sync-kind{grid-template-columns:1fr auto}
   .sync-kind em{grid-column:1 / -1}
   .sync-card .confirm-actions{grid-template-columns:1fr}

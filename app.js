@@ -200,6 +200,11 @@ function formatCountdownDays(days){
   if(days<=0)return '0';
   return days>=1?days.toFixed(5):days.toFixed(6);
 }
+function formatCountdownHTML(days){
+  const text=formatCountdownDays(days);
+  const [main,fraction]=text.split('.');
+  return fraction?`<span class="count-int">${main}</span><span class="count-dot">.</span><span class="count-frac">${fraction}</span>`:`<span class="count-int">${main}</span>`;
+}
 function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
 function keyFor(date){return `checks_${activeExamId}_${dayKey(date)}`}
 function prepKey(id){return `prep_${activeExamId}_${id}`}
@@ -373,7 +378,7 @@ function updateCountdown(){
   const e=exam(), target=examTargetDate(), now=Date.now(), ms=Math.max(0,target.getTime()-now), days=ms/DAY_MS, whole=Math.ceil(days);
   const label=document.getElementById('count-label'), num=document.getElementById('countdown-num'), sub=document.getElementById('countdown-sub');
   if(label)label.textContent=`距 ${examDateText()} 考试`;
-  if(num)num.textContent=formatCountdownDays(days);
+  if(num)num.innerHTML=formatCountdownHTML(days);
   if(sub)sub.textContent=ms>0?'数字在动，今天就别欠账':'Done，回看错题和薄弱点';
   const pinDays=document.getElementById('pin-days'), pinLeft=document.getElementById('pin-left'), statLeft=document.getElementById('s-left');
   if(pinDays)pinDays.textContent=ms>0?`${whole} 天`:'考试日';
@@ -609,24 +614,39 @@ function askSyncConflict(local,remote){
     const stats=syncDiffStats(local,remote);
     const kinds=['打卡','大合集','考试时间','设置'].map(kind=>{
       const row=stats.kinds[kind]||{local:0,remote:0,diff:0};
-      return `<div class="sync-kind"><b>${kind}</b><span>本机 ${row.local}</span><span>云端 ${row.remote}</span><em>${row.diff} 处差异</em></div>`;
+      return `<div class="sync-kind"><b>${kind}</b><span>本机 ${row.local}</span><span>云端 ${row.remote}</span><em>${row.diff} 项不一致</em></div>`;
     }).join('');
     card?.classList.add('sync-card');
     titleEl.textContent='同步冲突';
     msgEl.innerHTML=`
-      <div class="sync-summary">
-        <div class="sync-pill local"><strong>${stats.localTotal}</strong><span>本机记录</span></div>
-        <div class="sync-pill remote"><strong>${stats.remoteTotal}</strong><span>云端记录</span></div>
-        <div class="sync-pill diff"><strong>${stats.diffTotal}</strong><span>总差异</span></div>
+      <div class="sync-simple">
+        <div class="sync-side local"><span>本机</span><strong>${stats.localTotal}</strong><em>当前浏览器</em></div>
+        <div class="sync-vs">不同步</div>
+        <div class="sync-side remote"><span>云端</span><strong>${stats.remoteTotal}</strong><em>Supabase</em></div>
       </div>
-      <div class="sync-breakdown">
-        <div><b>${stats.localOnly}</b><span>只在本机</span></div>
-        <div><b>${stats.remoteOnly}</b><span>只在云端</span></div>
-        <div><b>${stats.changed}</b><span>内容不同</span></div>
+      <div class="sync-plain">
+        检测到 <b>${stats.diffTotal}</b> 项不一致。你只需要选一边作为准版本，另一边会被完整覆盖。
       </div>
-      <div class="sync-kinds">${kinds}</div>
-      <div class="sync-choice-note">请选择这次以哪一边为准。选择后会完整覆盖另一边，避免留下旧记录。</div>
+      <button class="sync-toggle" type="button" id="sync-detail-toggle">展开详细</button>
+      <div class="sync-detail" id="sync-detail">
+        <div class="sync-help">
+          <b>本机独有</b>：只存在于这台设备。<br>
+          <b>云端独有</b>：只存在于 Supabase。<br>
+          <b>同名不同</b>：两边都有同一条记录，但内容不一样。
+        </div>
+        <div class="sync-breakdown">
+          <div><b>${stats.localOnly}</b><span>本机独有</span></div>
+          <div><b>${stats.remoteOnly}</b><span>云端独有</span></div>
+          <div><b>${stats.changed}</b><span>同名不同</span></div>
+        </div>
+        <div class="sync-kinds">${kinds}</div>
+      </div>
     `;
+    msgEl.querySelector('#sync-detail-toggle')?.addEventListener('click',ev=>{
+      const detail=msgEl.querySelector('#sync-detail');
+      const open=detail?.classList.toggle('open');
+      ev.currentTarget.textContent=open?'收起详细':'展开详细';
+    });
     ok.textContent='保留本机';
     cancel.textContent='保留云端';
     ok.classList.remove('danger-btn');
