@@ -151,10 +151,20 @@ body.cloud-logged-in .account-form #account-email{display:none}
 .sync-kind b{font-size:14px;color:var(--text)}
 .sync-kind span,.sync-kind em{font-size:12px;color:var(--muted);font-weight:850;font-style:normal}
 .sync-kind em{color:var(--accent)}
-.sync-card .confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sync-data-list{display:grid;gap:8px}
+.sync-data-row{border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:10px;display:grid;gap:8px}
+.sync-data-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sync-data-head b{font-size:13px;color:var(--text);word-break:break-all}
+.sync-data-head em{font-size:12px;color:var(--accent);font-style:normal;font-weight:950;white-space:nowrap}
+.sync-data-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sync-data-cols div{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:8px;min-width:0}
+.sync-data-cols span{display:block;font-size:12px;color:var(--soft);font-weight:950;margin-bottom:4px}
+.sync-data-cols p{font-size:12px;color:var(--muted);font-weight:750;line-height:1.45;word-break:break-word}
+.sync-card .confirm-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .sync-card .confirm-actions .plain-btn{width:100%;min-height:48px}
 .sync-card #confirm-ok{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
 .sync-card #confirm-cancel{background:color-mix(in srgb,var(--good) 12%,var(--panel));border-color:color-mix(in srgb,var(--good) 50%,var(--line));color:var(--good)}
+.sync-card .merge-btn{background:color-mix(in srgb,var(--warn) 15%,var(--panel));border-color:color-mix(in srgb,var(--warn) 60%,var(--line));color:var(--text)}
 .view{display:none}
 .view.active{display:block;animation:enter .18s ease both}
 @keyframes enter{from{opacity:.6;transform:translateY(5px)}to{opacity:1;transform:none}}
@@ -318,6 +328,7 @@ body.cloud-logged-in .account-form #account-email{display:none}
   .sync-vs{text-align:center}
   .sync-kind{grid-template-columns:1fr auto}
   .sync-kind em{grid-column:1 / -1}
+  .sync-data-cols{grid-template-columns:1fr}
   .sync-card .confirm-actions{grid-template-columns:1fr}
   .mobile-today-pin{position:sticky;top:73px;z-index:930;display:grid;gap:7px;margin:0 0 12px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(18px);box-shadow:0 10px 28px rgba(0,0,0,.08)}
   .pin-top,.pin-stats{display:flex;align-items:center;justify-content:space-between;gap:10px}

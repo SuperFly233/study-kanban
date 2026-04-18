@@ -231,7 +231,7 @@ function syncKind(key){
 }
 function syncDiffStats(local,remote){
   const keys=[...new Set([...Object.keys(local),...Object.keys(remote)])].sort();
-  const stats={localTotal:Object.keys(local).length,remoteTotal:Object.keys(remote).length,localOnly:0,remoteOnly:0,changed:0,kinds:{}};
+  const stats={localTotal:Object.keys(local).length,remoteTotal:Object.keys(remote).length,localOnly:0,remoteOnly:0,changed:0,diffs:[],kinds:{}};
   const ensure=kind=>stats.kinds[kind]||(stats.kinds[kind]={local:0,remote:0,diff:0});
   Object.keys(local).forEach(key=>ensure(syncKind(key)).local+=1);
   Object.keys(remote).forEach(key=>ensure(syncKind(key)).remote+=1);
@@ -239,12 +239,39 @@ function syncDiffStats(local,remote){
     const inLocal=Object.prototype.hasOwnProperty.call(local,key);
     const inRemote=Object.prototype.hasOwnProperty.call(remote,key);
     const kind=ensure(syncKind(key));
-    if(!inRemote){stats.localOnly+=1;kind.diff+=1;return}
-    if(!inLocal){stats.remoteOnly+=1;kind.diff+=1;return}
-    if(local[key]!==remote[key]){stats.changed+=1;kind.diff+=1}
+    if(!inRemote){stats.localOnly+=1;kind.diff+=1;stats.diffs.push({key,type:'本机独有',local:local[key],remote:''});return}
+    if(!inLocal){stats.remoteOnly+=1;kind.diff+=1;stats.diffs.push({key,type:'云端独有',local:'',remote:remote[key]});return}
+    if(local[key]!==remote[key]){stats.changed+=1;kind.diff+=1;stats.diffs.push({key,type:'同名不同',local:local[key],remote:remote[key]})}
   });
   stats.diffTotal=stats.localOnly+stats.remoteOnly+stats.changed;
   return stats;
+}
+function syncValuePreview(key,value){
+  if(value===''||value===undefined||value===null)return '无';
+  if(key.startsWith('checks_')){
+    try{return `${JSON.parse(value).length} 项：${JSON.parse(value).join('、')||'空'}`}catch{return String(value)}
+  }
+  const text=String(value).replace(/\s+/g,' ').trim();
+  return text.length>120?`${text.slice(0,120)}…`:text;
+}
+function mergeSyncItems(local,remote){
+  const merged={...remote};
+  const keys=new Set([...Object.keys(local),...Object.keys(remote)]);
+  keys.forEach(key=>{
+    const l=local[key], r=remote[key];
+    if(r===undefined){merged[key]=l;return}
+    if(l===undefined||l===r)return;
+    if(key.startsWith('checks_')){
+      try{
+        merged[key]=JSON.stringify([...new Set([...(JSON.parse(r)||[]),...(JSON.parse(l)||[])])]);
+      }catch{merged[key]=r}
+      return;
+    }
+    if(key.startsWith('prep_')){
+      merged[key]=`${r}\n\n—— 本机内容（合并保留）——\n${l}`;
+    }
+  });
+  return merged;
 }
 function taskDone(task,checks){return checks.includes(task.id)||(task.aliases||[]).some(a=>checks.includes(a)||checks.includes(a.replace(/\s/g,'_')))}
 function countDone(tasks,checks){return tasks.filter(t=>taskDone(t,checks)).length}
@@ -585,6 +612,7 @@ function askConfirm(message,title='确认操作'){
     const cancel=document.getElementById('confirm-cancel');
     if(!layer||!ok||!cancel){resolve(window.confirm(message));return}
     card?.classList.remove('sync-card');
+    document.getElementById('sync-merge')?.remove();
     titleEl.textContent=title;
     msgEl.textContent=message;
     ok.textContent='确认';
@@ -610,12 +638,28 @@ function askSyncConflict(local,remote){
     const msgEl=document.getElementById('confirm-message');
     const ok=document.getElementById('confirm-ok');
     const cancel=document.getElementById('confirm-cancel');
-    if(!layer||!ok||!cancel){resolve(window.confirm('检测到本机和云端数据不一致。确认保留本机？取消则保留云端。'));return}
+    const actions=card?.querySelector('.confirm-actions');
+    if(!layer||!ok||!cancel){resolve(window.confirm('检测到本机和云端数据不一致。确认保留本机？取消则保留云端。')?'local':'remote');return}
+    document.getElementById('sync-merge')?.remove();
+    const mergeBtn=document.createElement('button');
+    mergeBtn.className='plain-btn merge-btn';
+    mergeBtn.id='sync-merge';
+    mergeBtn.textContent='合并';
+    actions?.insertBefore(mergeBtn,ok);
     const stats=syncDiffStats(local,remote);
     const kinds=['打卡','大合集','考试时间','设置'].map(kind=>{
       const row=stats.kinds[kind]||{local:0,remote:0,diff:0};
       return `<div class="sync-kind"><b>${kind}</b><span>本机 ${row.local}</span><span>云端 ${row.remote}</span><em>${row.diff} 项不一致</em></div>`;
     }).join('');
+    const rows=stats.diffs.map(item=>`
+      <div class="sync-data-row">
+        <div class="sync-data-head"><b>${escapeHTML(item.key)}</b><em>${escapeHTML(item.type)}</em></div>
+        <div class="sync-data-cols">
+          <div><span>本机</span><p>${escapeHTML(syncValuePreview(item.key,item.local))}</p></div>
+          <div><span>云端</span><p>${escapeHTML(syncValuePreview(item.key,item.remote))}</p></div>
+        </div>
+      </div>
+    `).join('');
     card?.classList.add('sync-card');
     titleEl.textContent='同步冲突';
     msgEl.innerHTML=`
@@ -625,7 +669,7 @@ function askSyncConflict(local,remote){
         <div class="sync-side remote"><span>云端</span><strong>${stats.remoteTotal}</strong><em>Supabase</em></div>
       </div>
       <div class="sync-plain">
-        检测到 <b>${stats.diffTotal}</b> 项不一致。你只需要选一边作为准版本，另一边会被完整覆盖。
+        检测到 <b>${stats.diffTotal}</b> 项不一致。推荐先点“合并”：打卡会合到一起，大合集会保留两边内容。
       </div>
       <button class="sync-toggle" type="button" id="sync-detail-toggle">展开详细</button>
       <div class="sync-detail" id="sync-detail">
@@ -640,6 +684,7 @@ function askSyncConflict(local,remote){
           <div><b>${stats.changed}</b><span>同名不同</span></div>
         </div>
         <div class="sync-kinds">${kinds}</div>
+        <div class="sync-data-list">${rows||'<div class="sync-help">没有不同的数据项。</div>'}</div>
       </div>
     `;
     msgEl.querySelector('#sync-detail-toggle')?.addEventListener('click',ev=>{
@@ -654,14 +699,17 @@ function askSyncConflict(local,remote){
     const close=value=>{
       layer.classList.remove('open');
       card?.classList.remove('sync-card');
+      mergeBtn.remove();
       ok.onclick=null;
       cancel.onclick=null;
+      mergeBtn.onclick=null;
       layer.onclick=null;
       resolve(value);
     };
-    ok.onclick=()=>close(true);
-    cancel.onclick=()=>close(false);
-    layer.onclick=ev=>{if(ev.target===layer)close(false)};
+    mergeBtn.onclick=()=>close('merge');
+    ok.onclick=()=>close('local');
+    cancel.onclick=()=>close('remote');
+    layer.onclick=ev=>{if(ev.target===layer)close('remote')};
   });
 }
 function setCloudStatus(text){
@@ -683,10 +731,10 @@ function canEnterApp(){return Boolean(cloudUser)||offlineMode()}
 function renderAuthGate(){document.body.classList.toggle('auth-required',!canEnterApp());document.body.classList.toggle('offline-mode',offlineMode()&&!cloudUser)}
 function useOfflineMode(){localStorage.setItem('offline_mode','1');renderAccount();renderAll()}
 function exitOfflineMode(){localStorage.removeItem('offline_mode');closeAccountPanel();renderAccount();notify('已回到登录入口','good','离线模式已退出')}
-async function afterCloudLogin(){
+async function afterCloudLogin(options={}){
   localStorage.removeItem('offline_mode');
   renderSettings();
-  if(!cloudBootstrapped)await bootstrapCloudSync();
+  if(!cloudBootstrapped)await bootstrapCloudSync(options.mode||'ask');
 }
 async function initCloud(){
   if(!supabaseConfigured()){setCloudStatus('Supabase 未配置');return}
@@ -702,13 +750,14 @@ async function initCloud(){
     renderSettings();
   });
   const params=new URLSearchParams(location.search);
+  const hasAuthCallback=params.has('code')||location.hash.includes('access_token')||location.hash.includes('type=');
   if(params.has('code')){
     const {error}=await cloudClient.auth.exchangeCodeForSession(params.get('code'));
     if(!error)history.replaceState({},document.title,location.pathname);
   }
   const {data}=await cloudClient.auth.getSession();
   cloudUser=data.session?.user||null;
-  if(cloudUser)await afterCloudLogin();else renderSettings();
+  if(cloudUser)await afterCloudLogin({mode:hasAuthCallback?'ask':'cloud'});else renderSettings();
 }
 function cloudReady(){
   if(!cloudClient){notify('Supabase 还没配置。先把 Project URL 和 anon key 填到 app.js 的 SUPABASE_CONFIG。','bad','云端不可用');return false}
@@ -731,7 +780,7 @@ async function signupPassword(source='account'){
   const {data,error}=await cloudClient.auth.signUp({email,password,options:{emailRedirectTo:authRedirectTo()}});
   if(error){notify(error.message,'bad','注册失败');return}
   cloudUser=data.session?.user||cloudUser;
-  if(cloudUser)await afterCloudLogin();else renderSettings();
+  if(cloudUser)await afterCloudLogin({mode:'ask'});else renderSettings();
   notify(data.session?'注册成功，已登录。':'注册邮件已发送，去邮箱确认后再登录。','good','注册成功');
 }
 async function loginPassword(source='account'){
@@ -742,7 +791,7 @@ async function loginPassword(source='account'){
   if(error){notify(error.message,'bad','登录失败');return}
   cloudUser=data.session?.user||null;
   passwordRecoveryMode=false;
-  if(cloudUser)await afterCloudLogin();else renderSettings();
+  if(cloudUser)await afterCloudLogin({mode:'ask'});else renderSettings();
   notify('欢迎回来，今天继续推进。','good','登录成功');
 }
 async function setCloudPassword(){
@@ -766,7 +815,7 @@ async function setCloudPassword(){
   if(loginError){cloudUser=null;renderSettings();notify(`密码已提交，但自动验证失败：${loginError.message}`,'bad','验证失败');return}
   cloudUser=data.session?.user||null;
   passwordRecoveryMode=false;
-  await afterCloudLogin();
+  await afterCloudLogin({mode:'cloud'});
   notify('以后可以直接密码登录。','good','密码已验证');
 }
 async function resetCloudPassword(source='account'){
@@ -812,7 +861,7 @@ function replaceLocalWithItems(items){
   Object.entries(items).forEach(([key,raw])=>localStorage.setItem(key,raw));
   activeExamId=localStorage.getItem('active_exam')||activeExamId;
 }
-async function bootstrapCloudSync(){
+async function bootstrapCloudSync(mode='ask'){
   if(!cloudClient||!cloudUser||cloudBusy)return;
   cloudBootstrapped=true;
   cloudBusy=true;
@@ -820,6 +869,13 @@ async function bootstrapCloudSync(){
   const {data,error}=await cloudClient.from('study_store').select('key,value').eq('user_id',cloudUser.id);
   if(error){cloudBusy=false;notify(error.message,'bad','同步失败');return}
   const remote=cloudRawMap(data);
+  if(mode==='cloud'){
+    replaceLocalWithItems(remote);
+    cloudBusy=false;
+    renderAll();
+    notify('已读取云端最新数据。','good','云端已同步');
+    return;
+  }
   if(!Object.keys(remote).length){
     const result=await uploadItemsToCloud(local);
     cloudBusy=false;
@@ -832,11 +888,20 @@ async function bootstrapCloudSync(){
     return;
   }
   cloudBusy=false;
-  const keepLocal=await askSyncConflict(local,remote);
+  const action=await askSyncConflict(local,remote);
   cloudBusy=true;
-  if(keepLocal){
+  if(action==='local'){
     const result=await replaceCloudWithItems(local);
     if(result.error)notify(result.error.message,'bad','同步失败');else notify('已保留本机并覆盖云端。','good','同步完成');
+  }else if(action==='merge'){
+    const merged=mergeSyncItems(local,remote);
+    const result=await replaceCloudWithItems(merged);
+    if(result.error)notify(result.error.message,'bad','同步失败');
+    else{
+      replaceLocalWithItems(merged);
+      notify('已合并本机和云端数据。','good','同步完成');
+      renderAll();
+    }
   }else{
     replaceLocalWithItems(remote);
     notify('已恢复云端数据。','good','同步完成');
