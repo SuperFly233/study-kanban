@@ -1,0 +1,116 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study Kanban | 备考看板</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<aside class="sidebar">
+  <div class="brand">备考看板</div>
+  <div class="exam-switch" id="exam-switch"></div>
+  <nav class="nav">
+    <button class="nav-item active" id="nav-today" onclick="showView('today',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>今日</button>
+    <button class="nav-item" id="nav-calendar" onclick="showView('calendar',this)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>日历</button>
+    <button class="nav-item" id="nav-list" onclick="showView('list',this)"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>清单</button>
+    <button class="nav-item" id="nav-plan" onclick="showView('plan',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>策略</button>
+    <button class="nav-item" id="nav-settings" onclick="showView('settings',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a7.8 7.8 0 0 0 .1-1 7.8 7.8 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L15 5.5h-4l-.3 2.6a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7.8 7.8 0 0 0-.1 1 7.8 7.8 0 0 0 .1 1l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 2.6h4l.3-2.6a7 7 0 0 0 1.7-1l2.4 1 2-3.4z"/></svg>设置</button>
+  </nav>
+  <div class="side-note">本地浏览器保存。部署后仍可用，接 Supabase 后可同步。</div>
+</aside>
+
+<main class="app">
+  <div class="topbar">
+    <div class="title-wrap">
+      <div class="app-title" id="app-title">备考看板</div>
+      <div class="app-sub" id="app-sub">今天是本地日期</div>
+    </div>
+    <select class="mobile-exam" id="mobile-exam" onchange="switchExam(this.value)"></select>
+    <button class="theme-btn" id="theme-toggle-btn" onclick="cycleTheme()" aria-label="切换主题"></button>
+  </div>
+
+  <section class="view active" id="view-today">
+    <div class="mobile-today-pin">
+      <div class="pin-top">
+        <div class="pin-phase" id="pin-phase">今日阶段</div>
+        <div class="pin-days" id="pin-days">- 天</div>
+      </div>
+      <div class="pin-tip" id="pin-tip">今日提醒</div>
+      <div class="pin-stats">
+        <span>今日 <strong id="pin-rate">0/0</strong></span>
+        <span>连续 <strong id="pin-streak">0</strong></span>
+        <span>剩余 <strong id="pin-left">-</strong></span>
+      </div>
+    </div>
+    <div class="hero">
+      <div class="hero-main">
+        <div class="date-line" id="today-date"></div>
+        <div class="phase-title" id="today-phase"></div>
+        <div class="phase-meta" id="today-left"></div>
+        <div class="progress"><span id="prog-bar"></span></div>
+      </div>
+      <div class="countdown">
+        <div class="count-label" id="count-label">距离考试</div>
+        <div class="count-main"><strong id="countdown-num">-</strong><span>天</span></div>
+        <div class="count-sub" id="countdown-sub"></div>
+      </div>
+    </div>
+    <div class="tip"><b>今日提醒</b><span id="tip-card"></span></div>
+    <div class="stat-row">
+      <div class="stat"><span class="stat-lbl">打卡天数</span><strong class="stat-num" id="s-done">0</strong></div>
+      <div class="stat"><span class="stat-lbl">剩余天数</span><strong class="stat-num" id="s-left">-</strong></div>
+      <div class="stat"><span class="stat-lbl">连续打卡</span><strong class="stat-num" id="s-streak">0</strong></div>
+      <div class="stat today-rate"><span class="stat-lbl">今日完成</span><strong class="stat-num" id="s-rate">0/0</strong></div>
+    </div>
+    <div class="module-grid" id="tasks-grid"></div>
+    <div class="quick-links" id="quick-links"></div>
+    <div class="prep-hub" id="prep-hub"></div>
+  </section>
+
+  <section class="view" id="view-calendar">
+    <div class="calendar-card">
+      <div class="cal-head">
+        <div class="cal-month" id="cal-month"></div>
+        <div class="cal-actions"><button onclick="moveMonth(-1)">‹</button><button onclick="moveMonth(1)">›</button></div>
+      </div>
+      <div class="legend">
+        <span><i class="swatch full"></i>全完成</span>
+        <span><i class="swatch part"></i>部分完成</span>
+        <span><i class="swatch exam"></i>终点日</span>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-info" id="cal-info"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-list"><div id="list-container"></div></section>
+  <section class="view" id="view-plan">
+    <div class="phase-list" id="plan-container"></div>
+    <div class="section-title">资源</div>
+    <div class="resource-grid" id="resource-container"></div>
+  </section>
+  <section class="view" id="view-settings">
+    <div class="settings-wrap">
+      <div class="setting-group">
+        <div class="setting-title">外观</div>
+        <div class="setting-row">
+          <div><div class="setting-label">主题</div><div class="setting-sub">自动跟随系统，也可以固定浅色或深色</div></div>
+          <div class="seg"><button id="th-auto" onclick="setTheme('auto')">自动</button><button id="th-light" onclick="setTheme('light')">浅色</button><button id="th-dark" onclick="setTheme('dark')">深色</button></div>
+        </div>
+      </div>
+      <div class="setting-group">
+        <div class="setting-title">数据</div>
+        <div class="setting-row"><div><div class="setting-label">当前存储</div><div class="setting-sub">localStorage，本机本浏览器记录。GitHub / Vercel 部署后仍是本地记录。</div></div></div>
+        <div class="setting-row"><div><div class="setting-label">导出记录</div><div class="setting-sub">备份当前浏览器所有打卡</div></div><button class="plain-btn" onclick="exportData()">导出</button></div>
+        <div class="setting-row"><div><div class="setting-label">导入记录</div><div class="setting-sub">从 JSON 恢复</div></div><button class="plain-btn" onclick="document.getElementById('import-file').click()">导入</button><input id="import-file" type="file" accept=".json" hidden onchange="importData(event)"></div>
+        <div class="setting-row"><div><div class="setting-label">清除当前考试打卡</div><div class="setting-sub">只清除当前选中考试</div></div><button class="danger-btn" onclick="clearData()">清除</button></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="./app.js" defer></script>
+</body>
+</html>
+
