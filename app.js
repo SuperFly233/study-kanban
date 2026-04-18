@@ -197,7 +197,6 @@ function syncableItems(){
 }
 function cloudRawMap(rows){const out={};(rows||[]).forEach(row=>{if(syncableKey(row.key))out[row.key]=String(row.value?.raw??'')});return out}
 function mapsEqual(a,b){const keys=new Set([...Object.keys(a),...Object.keys(b)]);for(const key of keys){if((a[key]??null)!==(b[key]??null))return false}return true}
-function countStudyKeys(items){return Object.keys(items).filter(k=>k.startsWith('checks_')||k.startsWith('prep_')).length}
 function taskDone(task,checks){return checks.includes(task.id)||(task.aliases||[]).some(a=>checks.includes(a)||checks.includes(a.replace(/\s/g,'_')))}
 function countDone(tasks,checks){return tasks.filter(t=>taskDone(t,checks)).length}
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -678,6 +677,16 @@ async function uploadItemsToCloud(items){
   const {error}=await cloudClient.from('study_store').upsert(rows,{onConflict:'user_id,key'});
   return {error,count:rows.length};
 }
+async function replaceCloudWithItems(items){
+  const {error:deleteError}=await cloudClient.from('study_store').delete().eq('user_id',cloudUser.id);
+  if(deleteError)return {error:deleteError,count:0};
+  return uploadItemsToCloud(items);
+}
+function replaceLocalWithItems(items){
+  Object.keys(syncableItems()).forEach(key=>localStorage.removeItem(key));
+  Object.entries(items).forEach(([key,raw])=>localStorage.setItem(key,raw));
+  activeExamId=localStorage.getItem('active_exam')||activeExamId;
+}
 async function bootstrapCloudSync(){
   if(!cloudClient||!cloudUser||cloudBusy)return;
   cloudBootstrapped=true;
@@ -697,30 +706,14 @@ async function bootstrapCloudSync(){
     notify('本机和云端已经一致','good','已自动同步');
     return;
   }
-  const localScore=countStudyKeys(local), remoteScore=countStudyKeys(remote);
-  if(localScore>remoteScore){
-    const result=await uploadItemsToCloud(local);
-    cloudBusy=false;
-    if(result.error)notify(result.error.message,'bad','同步失败');else notify('检测到本机数据更多，已自动覆盖云端。','good','已保留本机');
-    return;
-  }
-  if(remoteScore>localScore){
-    Object.entries(remote).forEach(([key,raw])=>localStorage.setItem(key,raw));
-    cloudBusy=false;
-    activeExamId=localStorage.getItem('active_exam')||activeExamId;
-    notify('检测到云端数据更多，已自动恢复到本机。','good','已保留云端');
-    renderAll();
-    return;
-  }
   cloudBusy=false;
-  const keepLocal=await askConfirm('本机和云端都有不同数据，数量接近。确认保留本机并覆盖云端？选择取消则恢复云端。','同步冲突');
+  const keepLocal=await askConfirm('检测到本机和云端数据不一致。确认保留本机并覆盖云端？选择取消则恢复云端。','同步冲突');
   cloudBusy=true;
   if(keepLocal){
-    const result=await uploadItemsToCloud(local);
+    const result=await replaceCloudWithItems(local);
     if(result.error)notify(result.error.message,'bad','同步失败');else notify('已保留本机并覆盖云端。','good','同步完成');
   }else{
-    Object.entries(remote).forEach(([key,raw])=>localStorage.setItem(key,raw));
-    activeExamId=localStorage.getItem('active_exam')||activeExamId;
+    replaceLocalWithItems(remote);
     notify('已恢复云端数据。','good','同步完成');
     renderAll();
   }
@@ -729,11 +722,10 @@ async function bootstrapCloudSync(){
 async function uploadCloud(){
   if(!cloudReady())return;
   cloudBusy=true;
-  const rows=Object.entries(syncableItems()).map(([key,raw])=>({user_id:cloudUser.id,key,value:{raw}}));
-  const {error}=await cloudClient.from('study_store').upsert(rows,{onConflict:'user_id,key'});
+  const result=await replaceCloudWithItems(syncableItems());
   cloudBusy=false;
-  if(error){notify(error.message,'bad','上传失败');return}
-  notify(`已上传 ${rows.length} 条本机数据`,'good','上传完成');
+  if(result.error){notify(result.error.message,'bad','上传失败');return}
+  notify(`已上传 ${result.count} 条本机数据`,'good','上传完成');
 }
 async function downloadCloud(){
   if(!cloudReady())return;
@@ -741,9 +733,8 @@ async function downloadCloud(){
   cloudBusy=true;
   const {data,error}=await cloudClient.from('study_store').select('key,value').eq('user_id',cloudUser.id);
   if(error){cloudBusy=false;notify(error.message,'bad','恢复失败');return}
-  (data||[]).forEach(row=>{if(syncableKey(row.key))localStorage.setItem(row.key,String(row.value?.raw??''))});
+  replaceLocalWithItems(cloudRawMap(data));
   cloudBusy=false;
-  activeExamId=localStorage.getItem('active_exam')||activeExamId;
   notify(`已恢复 ${data?.length||0} 条云端数据`,'good','恢复完成');
   renderAll();
 }
