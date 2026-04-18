@@ -6,7 +6,26 @@
 <title>Study Kanban | 备考看板</title>
 <link rel="stylesheet" href="./styles.css">
 </head>
-<body>
+<body class="auth-required">
+<section class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-kicker">Study Kanban</div>
+    <h1>先登录，再开始今天</h1>
+    <p>云端同步打卡和备考资料；也可以只在这台设备离线使用。</p>
+    <div class="auth-form">
+      <input class="cloud-input" id="auth-email" type="email" placeholder="邮箱">
+      <input class="cloud-input" id="auth-password" type="password" placeholder="密码，至少 6 位">
+      <button class="plain-btn primary-btn auth-main-btn" onclick="loginPassword('auth')">登录</button>
+    </div>
+    <div class="auth-options">
+      <button onclick="signupPassword('auth')">注册</button>
+      <button onclick="resetCloudPassword('auth')">忘记密码</button>
+      <button onclick="loginCloud('auth')">邮箱链接登录</button>
+      <button onclick="useOfflineMode()">离线模式</button>
+    </div>
+    <div class="auth-note" id="auth-status">正在检查登录状态...</div>
+  </div>
+</section>
 <aside class="sidebar">
   <div class="brand">备考看板</div>
   <div class="exam-switch" id="exam-switch"></div>
@@ -42,10 +61,10 @@
       <input class="cloud-input" id="account-password" type="password" placeholder="密码，至少 6 位">
     </div>
     <div class="account-actions logged-out-only">
-      <button class="plain-btn primary-btn" onclick="loginPassword()">密码登录</button>
-      <button class="plain-btn" onclick="signupPassword()">注册</button>
-      <button class="plain-btn" onclick="loginCloud()">邮箱链接</button>
-      <button class="plain-btn ghost-btn" onclick="resetCloudPassword()">忘记密码</button>
+      <button class="plain-btn primary-btn" onclick="loginPassword('account')">密码登录</button>
+      <button class="plain-btn" onclick="signupPassword('account')">注册</button>
+      <button class="plain-btn" onclick="loginCloud('account')">邮箱链接</button>
+      <button class="plain-btn ghost-btn" onclick="resetCloudPassword('account')">忘记密码</button>
     </div>
     <div class="account-actions logged-in-only">
       <button class="plain-btn primary-btn" onclick="uploadCloud()">上传本机</button>

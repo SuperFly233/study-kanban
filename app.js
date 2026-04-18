@@ -6,6 +6,7 @@ const SUPABASE_CONFIG={
 let cloudClient=null;
 let cloudUser=null;
 let cloudBusy=false;
+let passwordRecoveryMode=false;
 const EXAMS={
   cet6:{
     name:'CET-6 六级',
@@ -484,14 +485,24 @@ function renderPlan(){
   const res=document.getElementById('resource-container');res.innerHTML='';e.resources.forEach(r=>{const el=document.createElement('span');el.className='res-tag';el.textContent=r;res.appendChild(el)});
 }
 function supabaseConfigured(){return Boolean(SUPABASE_CONFIG.url&&SUPABASE_CONFIG.anonKey&&window.supabase)}
-function setCloudStatus(text){const el=document.getElementById('account-status');if(el)el.textContent=text}
+function setCloudStatus(text){
+  const account=document.getElementById('account-status');
+  const auth=document.getElementById('auth-status');
+  if(account)account.textContent=text;
+  if(auth)auth.textContent=text;
+}
 function authRedirectTo(){return location.origin+location.pathname}
-function cloudCredentials(){
+function cloudCredentials(source='account'){
+  const prefix=source==='auth'?'auth':'account';
   return {
-    email:document.getElementById('account-email')?.value.trim(),
-    password:document.getElementById('account-password')?.value,
+    email:document.getElementById(`${prefix}-email`)?.value.trim(),
+    password:document.getElementById(`${prefix}-password`)?.value,
   };
 }
+function offlineMode(){return localStorage.getItem('offline_mode')==='1'}
+function canEnterApp(){return Boolean(cloudUser)||offlineMode()}
+function renderAuthGate(){document.body.classList.toggle('auth-required',!canEnterApp());document.body.classList.toggle('offline-mode',offlineMode()&&!cloudUser)}
+function useOfflineMode(){localStorage.setItem('offline_mode','1');renderAccount();renderAll()}
 async function initCloud(){
   if(!supabaseConfigured()){setCloudStatus('Supabase 未配置');return}
   cloudClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.anonKey,{
@@ -499,7 +510,10 @@ async function initCloud(){
   });
   cloudClient.auth.onAuthStateChange((event,session)=>{
     cloudUser=session?.user||null;
-    if(event==='PASSWORD_RECOVERY')setCloudStatus('密码重置链接已打开，输入新密码后点“设置密码”');
+    if(event==='PASSWORD_RECOVERY'){
+      passwordRecoveryMode=true;
+      document.getElementById('account-panel')?.classList.add('open');
+    }
     renderSettings();
   });
   const params=new URLSearchParams(location.search);
@@ -509,6 +523,7 @@ async function initCloud(){
   }
   const {data}=await cloudClient.auth.getSession();
   cloudUser=data.session?.user||null;
+  if(cloudUser)localStorage.removeItem('offline_mode');
   renderSettings();
 }
 function cloudReady(){
@@ -516,48 +531,60 @@ function cloudReady(){
   if(!cloudUser){alert('请先用邮箱登录云端账号。');return false}
   return true;
 }
-async function loginCloud(){
+async function loginCloud(source='account'){
   if(!cloudClient){alert('Supabase 还没配置。');return}
-  const {email}=cloudCredentials();
+  const {email}=cloudCredentials(source);
   if(!email){alert('先输入邮箱');return}
   const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:authRedirectTo()}});
   if(error){alert(error.message);return}
   alert('登录链接已发送，去邮箱点一下。');
 }
-async function signupPassword(){
+async function signupPassword(source='account'){
   if(!cloudClient){alert('Supabase 还没配置。');return}
-  const {email,password}=cloudCredentials();
+  const {email,password}=cloudCredentials(source);
   if(!email||!password){alert('请输入邮箱和密码');return}
   if(password.length<6){alert('密码至少 6 位');return}
   const {data,error}=await cloudClient.auth.signUp({email,password,options:{emailRedirectTo:authRedirectTo()}});
   if(error){alert(error.message);return}
   cloudUser=data.session?.user||cloudUser;
+  if(cloudUser)localStorage.removeItem('offline_mode');
   renderSettings();
   alert(data.session?'注册成功，已登录。':'注册邮件已发送，去邮箱确认后再登录。');
 }
-async function loginPassword(){
+async function loginPassword(source='account'){
   if(!cloudClient){alert('Supabase 还没配置。');return}
-  const {email,password}=cloudCredentials();
+  const {email,password}=cloudCredentials(source);
   if(!email||!password){alert('请输入邮箱和密码');return}
   const {data,error}=await cloudClient.auth.signInWithPassword({email,password});
   if(error){alert(error.message);return}
   cloudUser=data.session?.user||null;
+  passwordRecoveryMode=false;
+  if(cloudUser)localStorage.removeItem('offline_mode');
   renderSettings();
   alert('登录成功');
 }
 async function setCloudPassword(){
   if(!cloudClient){alert('Supabase 还没配置。');return}
   if(!cloudUser){alert('请先通过邮箱链接登录，或打开忘记密码邮件后再设置新密码。');return}
-  const {password}=cloudCredentials();
+  const email=cloudUser.email;
+  const {password}=cloudCredentials('account');
   if(!password){alert('请输入新密码');return}
   if(password.length<6){alert('密码至少 6 位');return}
   const {error}=await cloudClient.auth.updateUser({password});
   if(error){alert(error.message);return}
-  alert('密码已设置/更新。以后可以直接密码登录。');
+  const {error:logoutError}=await cloudClient.auth.signOut();
+  if(logoutError){alert(logoutError.message);return}
+  const {data,error:loginError}=await cloudClient.auth.signInWithPassword({email,password});
+  if(loginError){cloudUser=null;renderSettings();alert(`密码已提交，但自动验证失败：${loginError.message}`);return}
+  cloudUser=data.session?.user||null;
+  passwordRecoveryMode=false;
+  localStorage.removeItem('offline_mode');
+  renderSettings();
+  alert('密码已设置并验证成功。以后可以直接密码登录。');
 }
-async function resetCloudPassword(){
+async function resetCloudPassword(source='account'){
   if(!cloudClient){alert('Supabase 还没配置。');return}
-  const {email}=cloudCredentials();
+  const {email}=cloudCredentials(source);
   if(!email){alert('先输入邮箱');return}
   const {error}=await cloudClient.auth.resetPasswordForEmail(email,{redirectTo:authRedirectTo()});
   if(error){alert(error.message);return}
@@ -567,6 +594,8 @@ async function logoutCloud(){
   if(!cloudClient)return;
   await cloudClient.auth.signOut();
   cloudUser=null;
+  passwordRecoveryMode=false;
+  localStorage.removeItem('offline_mode');
   renderSettings();
 }
 async function syncKeyToCloud(key){
@@ -609,13 +638,16 @@ function renderSettings(){
 }
 function renderAccount(){
   document.body.classList.toggle('cloud-logged-in',Boolean(cloudUser));
+  renderAuthGate();
   const btn=document.getElementById('account-toggle');
   if(btn){
     btn.classList.toggle('signed-in',Boolean(cloudUser));
-    btn.textContent=cloudUser?'已登录':'账号';
+    btn.textContent=cloudUser?'已登录':offlineMode()?'离线':'账号';
   }
   if(!supabaseConfigured())setCloudStatus('Supabase 未配置');
+  else if(cloudUser&&passwordRecoveryMode)setCloudStatus(`密码重置中：${cloudUser.email}，输入新密码后点“设置密码”`);
   else if(cloudUser)setCloudStatus(`已登录：${cloudUser.email}`);
+  else if(offlineMode())setCloudStatus('离线模式：只保存在当前浏览器');
   else setCloudStatus('Supabase 已配置，尚未登录');
 }
 function toggleAccountPanel(){

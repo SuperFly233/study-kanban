@@ -49,6 +49,19 @@
 body{min-height:100vh;background:var(--bg);color:var(--text);font-family:"Segoe UI","Microsoft YaHei UI","PingFang SC",system-ui,sans-serif;font-size:18px;line-height:1.55;letter-spacing:0}
 button,input{font:inherit}
 button{cursor:pointer}
+.auth-screen{position:fixed;inset:0;z-index:3000;display:none;place-items:center;padding:24px;background:radial-gradient(circle at 20% 15%,color-mix(in srgb,var(--accent-bg) 62%,transparent),transparent 34%),var(--bg)}
+body.auth-required .auth-screen{display:grid}
+body.auth-required .sidebar,body.auth-required .app{display:none}
+.auth-card{width:min(440px,100%);border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--panel) 94%,transparent);backdrop-filter:blur(18px);box-shadow:var(--shadow);padding:28px;display:grid;gap:14px}
+.auth-kicker{font-size:14px;color:var(--accent);font-weight:950;letter-spacing:.08em;text-transform:uppercase}
+.auth-card h1{font-size:34px;line-height:1.12;font-weight:950}
+.auth-card p{font-size:16px;color:var(--muted);font-weight:700;line-height:1.55}
+.auth-form{display:grid;gap:10px;margin-top:4px}
+.auth-main-btn{min-height:50px;font-size:18px}
+.auth-options{display:flex;flex-wrap:wrap;gap:8px}
+.auth-options button{border:0;background:transparent;color:var(--muted);font-size:14px;font-weight:900;padding:4px 2px}
+.auth-options button:hover{color:var(--accent)}
+.auth-note{border-top:1px solid var(--line);padding-top:11px;font-size:14px;color:var(--soft);font-weight:800;line-height:1.45}
 .app{max-width:var(--max);margin:0 auto;padding:22px 28px 44px 256px}
 .sidebar{position:fixed;left:max(24px,calc((100vw - var(--max))/2 + 24px));top:22px;bottom:22px;width:204px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:16px}
 .brand{font-size:25px;font-weight:900;line-height:1.15}
