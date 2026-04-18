@@ -18,9 +18,23 @@
 
 ## 数据
 
-当前数据保存在浏览器 `localStorage`：
+当前数据默认保存在浏览器 `localStorage`：
 
 - `checks_*`: 每日打卡
 - `prep_*`: 考试准备大合集编辑内容
 
-后续接 Supabase 时，可以把这些 key-value 数据同步到云端。
+配置 Supabase 后，可以把这些 key-value 数据同步到云端。
+
+## Supabase
+
+1. 在 Supabase 创建项目。
+2. 打开 SQL Editor，执行 `supabase.sql`。
+3. 在 Authentication 的 URL Configuration 里加入站点地址：
+   - `https://study-kanban.vercel.app`
+   - 本地测试时也可加入 `http://localhost:3000`
+4. 在 Project Settings / API 里复制：
+   - Project URL
+   - anon / publishable key
+5. 填入 `app.js` 顶部的 `SUPABASE_CONFIG`。
+
+不要把 `service_role` key 放进前端代码。

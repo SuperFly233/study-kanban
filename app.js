@@ -1,4 +1,11 @@
 ﻿const DAY_MS=86400000;
+const SUPABASE_CONFIG={
+  url:'',
+  anonKey:'',
+};
+let cloudClient=null;
+let cloudUser=null;
+let cloudBusy=false;
 const EXAMS={
   cet6:{
     name:'CET-6 六级',
@@ -173,9 +180,18 @@ function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
 function keyFor(date){return `checks_${activeExamId}_${dayKey(date)}`}
 function prepKey(id){return `prep_${activeExamId}_${id}`}
 function loadChecks(date){return JSON.parse(localStorage.getItem(keyFor(date))||'[]')}
-function saveChecks(date,items){localStorage.setItem(keyFor(date),JSON.stringify([...new Set(items)]))}
+function saveChecks(date,items){const key=keyFor(date);localStorage.setItem(key,JSON.stringify([...new Set(items)]));syncKeyToCloud(key)}
 function loadPrep(item){return localStorage.getItem(prepKey(item.id))??item.content}
-function savePrep(id,value){localStorage.setItem(prepKey(id),value)}
+function savePrep(id,value){const key=prepKey(id);localStorage.setItem(key,value);syncKeyToCloud(key)}
+function syncableKey(key){return key.startsWith('checks_')||key.startsWith('prep_')||key==='active_exam'||key==='theme'}
+function syncableItems(){
+  const items={};
+  for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i);
+    if(syncableKey(key))items[key]=localStorage.getItem(key);
+  }
+  return items;
+}
 function taskDone(task,checks){return checks.includes(task.id)||(task.aliases||[]).some(a=>checks.includes(a)||checks.includes(a.replace(/\s/g,'_')))}
 function countDone(tasks,checks){return tasks.filter(t=>taskDone(t,checks)).length}
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -233,6 +249,7 @@ function renderExamSwitch(){
 function switchExam(id){
   activeExamId=id;
   localStorage.setItem('active_exam',id);
+  syncKeyToCloud('active_exam');
   if(!selectedTaskByExam[id]||id==='accounting') selectedTaskByExam[id]=id==='accounting'?'course':'vocab';
   const start=parseDate(exam().start), t=today();
   calMonth=new Date(t.getFullYear(),t.getMonth(),1);
@@ -466,11 +483,77 @@ function renderPlan(){
   e.phases.forEach((p,i)=>{const card=document.createElement('div');card.className='phase-card '+(i===cur?'active-phase':'inactive');const date=addDays(start,Math.round(total*p.at));card.innerHTML=`<h3>${escapeHTML(p.name)}</h3><time>${date.toLocaleDateString('zh-CN',{month:'long',day:'numeric'})}</time><p>${escapeHTML(p.desc)}</p>`;box.appendChild(card)});
   const res=document.getElementById('resource-container');res.innerHTML='';e.resources.forEach(r=>{const el=document.createElement('span');el.className='res-tag';el.textContent=r;res.appendChild(el)});
 }
+function supabaseConfigured(){return Boolean(SUPABASE_CONFIG.url&&SUPABASE_CONFIG.anonKey&&window.supabase)}
+function setCloudStatus(text){const el=document.getElementById('cloud-status');if(el)el.textContent=text}
+async function initCloud(){
+  if(!supabaseConfigured()){setCloudStatus('Supabase 未配置');return}
+  cloudClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.anonKey);
+  const {data}=await cloudClient.auth.getSession();
+  cloudUser=data.session?.user||null;
+  cloudClient.auth.onAuthStateChange((_event,session)=>{cloudUser=session?.user||null;renderSettings()});
+  renderSettings();
+}
+function cloudReady(){
+  if(!cloudClient){alert('Supabase 还没配置。先把 Project URL 和 anon key 填到 app.js 的 SUPABASE_CONFIG。');return false}
+  if(!cloudUser){alert('请先用邮箱登录云端账号。');return false}
+  return true;
+}
+async function loginCloud(){
+  if(!cloudClient){alert('Supabase 还没配置。');return}
+  const email=document.getElementById('cloud-email')?.value.trim();
+  if(!email){alert('先输入邮箱');return}
+  const redirectTo=location.origin+location.pathname;
+  const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:redirectTo}});
+  if(error){alert(error.message);return}
+  alert('登录链接已发送，去邮箱点一下。');
+}
+async function logoutCloud(){
+  if(!cloudClient)return;
+  await cloudClient.auth.signOut();
+  cloudUser=null;
+  renderSettings();
+}
+async function syncKeyToCloud(key){
+  if(!cloudClient||!cloudUser||cloudBusy||!syncableKey(key))return;
+  const raw=localStorage.getItem(key);
+  if(raw===null)return;
+  await cloudClient.from('study_store').upsert({
+    user_id:cloudUser.id,
+    key,
+    value:{raw},
+  },{onConflict:'user_id,key'});
+}
+async function uploadCloud(){
+  if(!cloudReady())return;
+  cloudBusy=true;
+  const rows=Object.entries(syncableItems()).map(([key,raw])=>({user_id:cloudUser.id,key,value:{raw}}));
+  const {error}=await cloudClient.from('study_store').upsert(rows,{onConflict:'user_id,key'});
+  cloudBusy=false;
+  if(error){alert(error.message);return}
+  alert(`已上传 ${rows.length} 条本机数据`);
+}
+async function downloadCloud(){
+  if(!cloudReady())return;
+  if(!confirm('确认用云端数据覆盖当前浏览器本地数据？'))return;
+  cloudBusy=true;
+  const {data,error}=await cloudClient.from('study_store').select('key,value').eq('user_id',cloudUser.id);
+  if(error){cloudBusy=false;alert(error.message);return}
+  (data||[]).forEach(row=>{if(syncableKey(row.key))localStorage.setItem(row.key,String(row.value?.raw??''))});
+  cloudBusy=false;
+  activeExamId=localStorage.getItem('active_exam')||activeExamId;
+  alert(`已恢复 ${data?.length||0} 条云端数据`);
+  renderAll();
+}
 function renderSettings(){
   const theme=localStorage.getItem('theme')||'auto';
   ['auto','light','dark'].forEach(t=>document.getElementById('th-'+t).classList.toggle('active',theme===t));
+  const storage=document.getElementById('storage-status');
+  if(storage)storage.textContent=cloudUser?'localStorage + Supabase 云端同步':'localStorage，本机本浏览器记录。配置 Supabase 后可云端同步。';
+  if(!supabaseConfigured())setCloudStatus('Supabase 未配置');
+  else if(cloudUser)setCloudStatus(`已登录：${cloudUser.email}`);
+  else setCloudStatus('Supabase 已配置，尚未登录');
 }
-function setTheme(t){localStorage.setItem('theme',t);applyTheme(t);renderSettings()}
+function setTheme(t){localStorage.setItem('theme',t);syncKeyToCloud('theme');applyTheme(t);renderSettings()}
 function applyTheme(t){
   if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t);
   const btn=document.getElementById('theme-toggle-btn');
@@ -484,11 +567,12 @@ function applyTheme(t){
   }
 }
 function cycleTheme(){const cur=localStorage.getItem('theme')||'auto', order=['auto','light','dark'];setTheme(order[(order.indexOf(cur)+1)%3])}
-function exportData(){const data={activeExamId,items:{}};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k.startsWith('checks_')||k.startsWith('prep_'))data.items[k]=localStorage.getItem(k)}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='study-dashboard-backup.json';a.click()}
-function importData(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const data=JSON.parse(ev.target.result);Object.entries(data.items||{}).forEach(([k,v])=>{if(k.startsWith('checks_'))localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v));if(k.startsWith('prep_'))localStorage.setItem(k,String(v))});alert('导入成功');renderAll()}catch{alert('文件格式错误')}};reader.readAsText(file)}
-function clearData(){if(!confirm(`确认清除 ${exam().name} 的打卡记录和大合集内容？`))return;const prefixes=[`checks_${activeExamId}_`,`prep_${activeExamId}_`];const keys=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(prefixes.some(p=>k.startsWith(p)))keys.push(k)}keys.forEach(k=>localStorage.removeItem(k));renderAll()}
+function exportData(){const data={activeExamId,items:syncableItems()};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='study-kanban-backup.json';a.click()}
+function importData(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const data=JSON.parse(ev.target.result);Object.entries(data.items||{}).forEach(([k,v])=>{if(syncableKey(k))localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v))});alert('导入成功');renderAll()}catch{alert('文件格式错误')}};reader.readAsText(file)}
+async function clearData(){if(!confirm(`确认清除 ${exam().name} 的打卡记录和大合集内容？`))return;const prefixes=[`checks_${activeExamId}_`,`prep_${activeExamId}_`];const keys=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(prefixes.some(p=>k.startsWith(p)))keys.push(k)}keys.forEach(k=>localStorage.removeItem(k));if(cloudClient&&cloudUser&&keys.length){await cloudClient.from('study_store').delete().eq('user_id',cloudUser.id).in('key',keys)}renderAll()}
 
 applyTheme(localStorage.getItem('theme')||'auto');
+initCloud();
 renderAll();
 window.addEventListener('scroll',refreshMobilePin,{passive:true});
 document.addEventListener('scroll',refreshMobilePin,{passive:true,capture:true});
