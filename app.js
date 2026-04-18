@@ -484,12 +484,12 @@ function renderPlan(){
   const res=document.getElementById('resource-container');res.innerHTML='';e.resources.forEach(r=>{const el=document.createElement('span');el.className='res-tag';el.textContent=r;res.appendChild(el)});
 }
 function supabaseConfigured(){return Boolean(SUPABASE_CONFIG.url&&SUPABASE_CONFIG.anonKey&&window.supabase)}
-function setCloudStatus(text){const el=document.getElementById('cloud-status');if(el)el.textContent=text}
+function setCloudStatus(text){const el=document.getElementById('account-status');if(el)el.textContent=text}
 function authRedirectTo(){return location.origin+location.pathname}
 function cloudCredentials(){
   return {
-    email:document.getElementById('cloud-email')?.value.trim(),
-    password:document.getElementById('cloud-password')?.value,
+    email:document.getElementById('account-email')?.value.trim(),
+    password:document.getElementById('account-password')?.value,
   };
 }
 async function initCloud(){
@@ -605,9 +605,24 @@ function renderSettings(){
   ['auto','light','dark'].forEach(t=>document.getElementById('th-'+t).classList.toggle('active',theme===t));
   const storage=document.getElementById('storage-status');
   if(storage)storage.textContent=cloudUser?'localStorage + Supabase 云端同步':'localStorage，本机本浏览器记录。配置 Supabase 后可云端同步。';
+  renderAccount();
+}
+function renderAccount(){
+  document.body.classList.toggle('cloud-logged-in',Boolean(cloudUser));
+  const btn=document.getElementById('account-toggle');
+  if(btn){
+    btn.classList.toggle('signed-in',Boolean(cloudUser));
+    btn.textContent=cloudUser?'已登录':'账号';
+  }
   if(!supabaseConfigured())setCloudStatus('Supabase 未配置');
   else if(cloudUser)setCloudStatus(`已登录：${cloudUser.email}`);
   else setCloudStatus('Supabase 已配置，尚未登录');
+}
+function toggleAccountPanel(){
+  document.getElementById('account-panel')?.classList.toggle('open');
+}
+function closeAccountPanel(){
+  document.getElementById('account-panel')?.classList.remove('open');
 }
 function setTheme(t){localStorage.setItem('theme',t);syncKeyToCloud('theme');applyTheme(t);renderSettings()}
 function applyTheme(t){
