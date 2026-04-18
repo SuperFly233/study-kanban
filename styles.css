@@ -124,9 +124,31 @@ body.cloud-logged-in .account-form #account-email{display:none}
 .confirm-layer{position:fixed;inset:0;z-index:3900;display:none;place-items:center;padding:22px;background:rgba(0,0,0,.24);backdrop-filter:blur(10px)}
 .confirm-layer.open{display:grid}
 .confirm-card{width:min(420px,100%);border:1px solid var(--line);border-radius:10px;background:var(--panel);box-shadow:0 24px 70px rgba(0,0,0,.24);padding:18px;display:grid;gap:12px;animation:enter .16s ease both}
+.confirm-card.sync-card{width:min(620px,100%);gap:14px}
 .confirm-title{font-size:21px;font-weight:950}
 .confirm-message{font-size:15px;color:var(--muted);font-weight:750;line-height:1.55}
 .confirm-actions{display:flex;justify-content:flex-end;gap:8px}
+.sync-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sync-pill{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel2);display:grid;gap:4px}
+.sync-pill strong{font-size:30px;line-height:1;font-weight:950;color:var(--text)}
+.sync-pill span{font-size:13px;font-weight:850;color:var(--muted)}
+.sync-pill.local{border-color:color-mix(in srgb,var(--accent) 42%,var(--line));background:color-mix(in srgb,var(--accent-bg) 48%,var(--panel))}
+.sync-pill.remote{border-color:color-mix(in srgb,var(--good) 42%,var(--line));background:color-mix(in srgb,var(--good) 12%,var(--panel))}
+.sync-pill.diff{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));background:color-mix(in srgb,var(--warn) 14%,var(--panel))}
+.sync-breakdown{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sync-breakdown div{border:1px dashed var(--line);border-radius:10px;padding:9px 10px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.sync-breakdown b{font-size:20px;color:var(--text)}
+.sync-breakdown span{font-size:12px;color:var(--muted);font-weight:850}
+.sync-kinds{display:grid;gap:8px}
+.sync-kind{display:grid;grid-template-columns:1fr auto auto auto;gap:9px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:color-mix(in srgb,var(--panel) 72%,var(--panel2))}
+.sync-kind b{font-size:14px;color:var(--text)}
+.sync-kind span,.sync-kind em{font-size:12px;color:var(--muted);font-weight:850;font-style:normal}
+.sync-kind em{color:var(--accent)}
+.sync-choice-note{font-size:13px;color:var(--muted);font-weight:800;background:var(--panel2);border-radius:10px;padding:10px 12px}
+.sync-card .confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sync-card .confirm-actions .plain-btn{width:100%;min-height:48px}
+.sync-card #confirm-ok{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+.sync-card #confirm-cancel{background:color-mix(in srgb,var(--good) 12%,var(--panel));border-color:color-mix(in srgb,var(--good) 50%,var(--line));color:var(--good)}
 .view{display:none}
 .view.active{display:block;animation:enter .18s ease both}
 @keyframes enter{from{opacity:.6;transform:translateY(5px)}to{opacity:1;transform:none}}
@@ -280,6 +302,12 @@ body.cloud-logged-in .account-form #account-email{display:none}
   .theme-btn{display:none}
   .account-panel{top:82px;left:14px;right:14px;width:auto}
   .toast-stack{top:14px;left:14px;right:14px;width:auto}
+  .confirm-layer{padding:14px}
+  .confirm-card.sync-card{max-height:calc(100vh - 28px);overflow:auto}
+  .sync-summary,.sync-breakdown{grid-template-columns:1fr}
+  .sync-kind{grid-template-columns:1fr auto}
+  .sync-kind em{grid-column:1 / -1}
+  .sync-card .confirm-actions{grid-template-columns:1fr}
   .mobile-today-pin{position:sticky;top:73px;z-index:930;display:grid;gap:7px;margin:0 0 12px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(18px);box-shadow:0 10px 28px rgba(0,0,0,.08)}
   .pin-top,.pin-stats{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .pin-phase{font-size:16px;font-weight:950;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -197,6 +197,28 @@ function syncableItems(){
 }
 function cloudRawMap(rows){const out={};(rows||[]).forEach(row=>{if(syncableKey(row.key))out[row.key]=String(row.value?.raw??'')});return out}
 function mapsEqual(a,b){const keys=new Set([...Object.keys(a),...Object.keys(b)]);for(const key of keys){if((a[key]??null)!==(b[key]??null))return false}return true}
+function syncKind(key){
+  if(key.startsWith('checks_'))return '打卡';
+  if(key.startsWith('prep_'))return '大合集';
+  return '设置';
+}
+function syncDiffStats(local,remote){
+  const keys=[...new Set([...Object.keys(local),...Object.keys(remote)])].sort();
+  const stats={localTotal:Object.keys(local).length,remoteTotal:Object.keys(remote).length,localOnly:0,remoteOnly:0,changed:0,kinds:{}};
+  const ensure=kind=>stats.kinds[kind]||(stats.kinds[kind]={local:0,remote:0,diff:0});
+  Object.keys(local).forEach(key=>ensure(syncKind(key)).local+=1);
+  Object.keys(remote).forEach(key=>ensure(syncKind(key)).remote+=1);
+  keys.forEach(key=>{
+    const inLocal=Object.prototype.hasOwnProperty.call(local,key);
+    const inRemote=Object.prototype.hasOwnProperty.call(remote,key);
+    const kind=ensure(syncKind(key));
+    if(!inRemote){stats.localOnly+=1;kind.diff+=1;return}
+    if(!inLocal){stats.remoteOnly+=1;kind.diff+=1;return}
+    if(local[key]!==remote[key]){stats.changed+=1;kind.diff+=1}
+  });
+  stats.diffTotal=stats.localOnly+stats.remoteOnly+stats.changed;
+  return stats;
+}
 function taskDone(task,checks){return checks.includes(task.id)||(task.aliases||[]).some(a=>checks.includes(a)||checks.includes(a.replace(/\s/g,'_')))}
 function countDone(tasks,checks){return tasks.filter(t=>taskDone(t,checks)).length}
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -520,18 +542,70 @@ function dismissToast(key){
 function askConfirm(message,title='确认操作'){
   return new Promise(resolve=>{
     const layer=document.getElementById('confirm-layer');
+    const card=document.getElementById('confirm-card');
     const titleEl=document.getElementById('confirm-title');
     const msgEl=document.getElementById('confirm-message');
     const ok=document.getElementById('confirm-ok');
     const cancel=document.getElementById('confirm-cancel');
     if(!layer||!ok||!cancel){resolve(window.confirm(message));return}
+    card?.classList.remove('sync-card');
     titleEl.textContent=title;
     msgEl.textContent=message;
+    ok.textContent='确认';
+    cancel.textContent='取消';
+    ok.classList.add('danger-btn');
     layer.classList.add('open');
     const close=value=>{
       layer.classList.remove('open');
       ok.onclick=null;
       cancel.onclick=null;
+      resolve(value);
+    };
+    ok.onclick=()=>close(true);
+    cancel.onclick=()=>close(false);
+    layer.onclick=ev=>{if(ev.target===layer)close(false)};
+  });
+}
+function askSyncConflict(local,remote){
+  return new Promise(resolve=>{
+    const layer=document.getElementById('confirm-layer');
+    const card=document.getElementById('confirm-card');
+    const titleEl=document.getElementById('confirm-title');
+    const msgEl=document.getElementById('confirm-message');
+    const ok=document.getElementById('confirm-ok');
+    const cancel=document.getElementById('confirm-cancel');
+    if(!layer||!ok||!cancel){resolve(window.confirm('检测到本机和云端数据不一致。确认保留本机？取消则保留云端。'));return}
+    const stats=syncDiffStats(local,remote);
+    const kinds=['打卡','大合集','设置'].map(kind=>{
+      const row=stats.kinds[kind]||{local:0,remote:0,diff:0};
+      return `<div class="sync-kind"><b>${kind}</b><span>本机 ${row.local}</span><span>云端 ${row.remote}</span><em>${row.diff} 处差异</em></div>`;
+    }).join('');
+    card?.classList.add('sync-card');
+    titleEl.textContent='同步冲突';
+    msgEl.innerHTML=`
+      <div class="sync-summary">
+        <div class="sync-pill local"><strong>${stats.localTotal}</strong><span>本机记录</span></div>
+        <div class="sync-pill remote"><strong>${stats.remoteTotal}</strong><span>云端记录</span></div>
+        <div class="sync-pill diff"><strong>${stats.diffTotal}</strong><span>总差异</span></div>
+      </div>
+      <div class="sync-breakdown">
+        <div><b>${stats.localOnly}</b><span>只在本机</span></div>
+        <div><b>${stats.remoteOnly}</b><span>只在云端</span></div>
+        <div><b>${stats.changed}</b><span>内容不同</span></div>
+      </div>
+      <div class="sync-kinds">${kinds}</div>
+      <div class="sync-choice-note">请选择这次以哪一边为准。选择后会完整覆盖另一边，避免留下旧记录。</div>
+    `;
+    ok.textContent='保留本机';
+    cancel.textContent='保留云端';
+    ok.classList.remove('danger-btn');
+    layer.classList.add('open');
+    const close=value=>{
+      layer.classList.remove('open');
+      card?.classList.remove('sync-card');
+      ok.onclick=null;
+      cancel.onclick=null;
+      layer.onclick=null;
       resolve(value);
     };
     ok.onclick=()=>close(true);
@@ -707,7 +781,7 @@ async function bootstrapCloudSync(){
     return;
   }
   cloudBusy=false;
-  const keepLocal=await askConfirm('检测到本机和云端数据不一致。确认保留本机并覆盖云端？选择取消则恢复云端。','同步冲突');
+  const keepLocal=await askSyncConflict(local,remote);
   cloudBusy=true;
   if(keepLocal){
     const result=await replaceCloudWithItems(local);
