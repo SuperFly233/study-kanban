@@ -485,12 +485,30 @@ function renderPlan(){
 }
 function supabaseConfigured(){return Boolean(SUPABASE_CONFIG.url&&SUPABASE_CONFIG.anonKey&&window.supabase)}
 function setCloudStatus(text){const el=document.getElementById('cloud-status');if(el)el.textContent=text}
+function authRedirectTo(){return location.origin+location.pathname}
+function cloudCredentials(){
+  return {
+    email:document.getElementById('cloud-email')?.value.trim(),
+    password:document.getElementById('cloud-password')?.value,
+  };
+}
 async function initCloud(){
   if(!supabaseConfigured()){setCloudStatus('Supabase 未配置');return}
-  cloudClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.anonKey);
+  cloudClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.anonKey,{
+    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+  });
+  cloudClient.auth.onAuthStateChange((event,session)=>{
+    cloudUser=session?.user||null;
+    if(event==='PASSWORD_RECOVERY')setCloudStatus('密码重置链接已打开，输入新密码后点“设置密码”');
+    renderSettings();
+  });
+  const params=new URLSearchParams(location.search);
+  if(params.has('code')){
+    const {error}=await cloudClient.auth.exchangeCodeForSession(params.get('code'));
+    if(!error)history.replaceState({},document.title,location.pathname);
+  }
   const {data}=await cloudClient.auth.getSession();
   cloudUser=data.session?.user||null;
-  cloudClient.auth.onAuthStateChange((_event,session)=>{cloudUser=session?.user||null;renderSettings()});
   renderSettings();
 }
 function cloudReady(){
@@ -500,12 +518,50 @@ function cloudReady(){
 }
 async function loginCloud(){
   if(!cloudClient){alert('Supabase 还没配置。');return}
-  const email=document.getElementById('cloud-email')?.value.trim();
+  const {email}=cloudCredentials();
   if(!email){alert('先输入邮箱');return}
-  const redirectTo=location.origin+location.pathname;
-  const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:redirectTo}});
+  const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:authRedirectTo()}});
   if(error){alert(error.message);return}
   alert('登录链接已发送，去邮箱点一下。');
+}
+async function signupPassword(){
+  if(!cloudClient){alert('Supabase 还没配置。');return}
+  const {email,password}=cloudCredentials();
+  if(!email||!password){alert('请输入邮箱和密码');return}
+  if(password.length<6){alert('密码至少 6 位');return}
+  const {data,error}=await cloudClient.auth.signUp({email,password,options:{emailRedirectTo:authRedirectTo()}});
+  if(error){alert(error.message);return}
+  cloudUser=data.session?.user||cloudUser;
+  renderSettings();
+  alert(data.session?'注册成功，已登录。':'注册邮件已发送，去邮箱确认后再登录。');
+}
+async function loginPassword(){
+  if(!cloudClient){alert('Supabase 还没配置。');return}
+  const {email,password}=cloudCredentials();
+  if(!email||!password){alert('请输入邮箱和密码');return}
+  const {data,error}=await cloudClient.auth.signInWithPassword({email,password});
+  if(error){alert(error.message);return}
+  cloudUser=data.session?.user||null;
+  renderSettings();
+  alert('登录成功');
+}
+async function setCloudPassword(){
+  if(!cloudClient){alert('Supabase 还没配置。');return}
+  if(!cloudUser){alert('请先通过邮箱链接登录，或打开忘记密码邮件后再设置新密码。');return}
+  const {password}=cloudCredentials();
+  if(!password){alert('请输入新密码');return}
+  if(password.length<6){alert('密码至少 6 位');return}
+  const {error}=await cloudClient.auth.updateUser({password});
+  if(error){alert(error.message);return}
+  alert('密码已设置/更新。以后可以直接密码登录。');
+}
+async function resetCloudPassword(){
+  if(!cloudClient){alert('Supabase 还没配置。');return}
+  const {email}=cloudCredentials();
+  if(!email){alert('先输入邮箱');return}
+  const {error}=await cloudClient.auth.resetPasswordForEmail(email,{redirectTo:authRedirectTo()});
+  if(error){alert(error.message);return}
+  alert('密码重置邮件已发送。打开邮件后回到这里输入新密码，再点“设置密码”。');
 }
 async function logoutCloud(){
   if(!cloudClient)return;
