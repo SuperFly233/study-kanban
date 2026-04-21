@@ -431,6 +431,13 @@ function toggleTaskDone(date,task){
   saveChecks(date,current);
   renderToday();
 }
+function setTaskDoneForDate(date,task,done){
+  const current=loadChecks(date), ids=[task.id,...(task.aliases||[])];
+  const normalized=ids.map(a=>a.replace(/\s/g,'_'));
+  const filtered=current.filter(x=>!ids.includes(x)&&!normalized.includes(x));
+  if(done)filtered.push(task.id);
+  saveChecks(date,filtered);
+}
 function isMobileView(){return window.matchMedia&&window.matchMedia('(max-width: 760px)').matches}
 function refreshMobilePin(){
   const pin=document.querySelector('.mobile-today-pin');
@@ -548,8 +555,40 @@ function renderCalendar(){
 function calendarInfo(date){
   const tasks=tasksFor(date), checks=loadChecks(date), done=countDone(tasks,checks);
   const title=date.toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'});
-  if(!tasks.length)return `<strong>${escapeHTML(title)}</strong>该日无任务`;
-  return `<strong>${escapeHTML(title)} · ${done}/${tasks.length} 完成</strong>${tasks.map(t=>(taskDone(t,checks)?'✓ ':'○ ')+escapeHTML(t.title)).join('　')}`;
+  const pct=tasks.length?Math.round(done/tasks.length*100):0;
+  if(!tasks.length)return `<div class="cal-editor"><div class="cal-editor-head"><div><strong>${escapeHTML(title)}</strong><span>该日无任务，可以换一天补打。</span></div></div></div>`;
+  return `
+    <div class="cal-editor">
+      <div class="cal-editor-head">
+        <div><strong>${escapeHTML(title)}</strong><span>${done}/${tasks.length} 完成 · 可补打、可修改</span></div>
+        <div class="cal-score"><b>${pct}%</b><i style="width:${pct}%"></i></div>
+      </div>
+      <div class="cal-actions">
+        <button class="plain-btn" onclick="calendarSetAll('${dayKey(date)}',true)">全部完成</button>
+        <button class="plain-btn ghost-btn" onclick="calendarSetAll('${dayKey(date)}',false)">清空当天</button>
+      </div>
+      <div class="cal-task-list">
+        ${tasks.map(t=>{
+          const checked=taskDone(t,checks);
+          return `<button class="cal-task ${checked?'done':''}" onclick="calendarToggleTask('${dayKey(date)}','${escapeHTML(t.id)}')"><span>${checked?'✓':'○'}</span><div><b>${escapeHTML(t.title)}</b><em>${escapeHTML(t.sub||t.badge||'')}</em></div></button>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+function calendarToggleTask(dateKey,taskId){
+  const date=parseDate(dateKey), task=tasksFor(date).find(t=>t.id===taskId);
+  if(!task)return;
+  setTaskDoneForDate(date,task,!taskDone(task,loadChecks(date)));
+  notify(`${date.toLocaleDateString('zh-CN',{month:'long',day:'numeric'})} 已更新`,'good','日历打卡');
+  renderCalendar();
+  renderToday();
+}
+function calendarSetAll(dateKey,done){
+  const date=parseDate(dateKey), tasks=tasksFor(date);
+  saveChecks(date,done?tasks.map(t=>t.id):[]);
+  notify(`${date.toLocaleDateString('zh-CN',{month:'long',day:'numeric'})} 已${done?'全部完成':'清空'}`,'good','日历打卡');
+  renderCalendar();
+  renderToday();
 }
 function moveMonth(dir){calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+dir,1);renderCalendar()}
 function renderList(){

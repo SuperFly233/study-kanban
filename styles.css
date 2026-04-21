@@ -251,6 +251,22 @@ body.cloud-logged-in .account-form #account-email{display:none}
 .day.exam{background:var(--bad-bg);color:var(--bad)}
 .cal-info{margin-top:12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:13px 16px;font-size:16px;font-weight:700;color:var(--muted);line-height:1.6}
 .cal-info strong{display:block;color:var(--text);font-size:18px;margin-bottom:4px}
+.cal-editor{display:grid;gap:12px}
+.cal-editor-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.cal-editor-head span{display:block;font-size:14px;color:var(--muted);font-weight:750}
+.cal-score{position:relative;min-width:116px;height:42px;border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden;display:grid;place-items:center}
+.cal-score i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--accent-bg),color-mix(in srgb,var(--good) 18%,var(--panel)));z-index:0}
+.cal-score b{position:relative;z-index:1;font-size:17px;color:var(--accent);font-style:normal}
+.cal-actions{display:flex;gap:8px;flex-wrap:wrap}
+.cal-actions .plain-btn{min-width:120px}
+.cal-task-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.cal-task{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:10px 12px;display:flex;align-items:flex-start;gap:10px;text-align:left;color:var(--text);min-height:74px}
+.cal-task:hover{border-color:var(--accent)}
+.cal-task>span{width:28px;height:28px;border-radius:999px;border:2px solid var(--line);display:grid;place-items:center;flex:none;color:var(--soft);font-weight:950}
+.cal-task.done{background:var(--good-bg);border-color:color-mix(in srgb,var(--good) 48%,var(--line))}
+.cal-task.done>span{border-color:var(--good);background:var(--good);color:#fff}
+.cal-task b{display:block;font-size:16px;font-weight:950;color:var(--text)}
+.cal-task em{display:block;font-size:13px;color:var(--muted);font-style:normal;font-weight:750;margin-top:2px}
 .section-title{font-size:16px;color:var(--soft);font-weight:950;letter-spacing:.08em;margin:18px 0 9px}
 .milestones{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .weeks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -351,6 +367,12 @@ body.cloud-logged-in .account-form #account-email{display:none}
   .day{min-height:42px;font-size:19px}
   .cal-grid{gap:3px}
   .calendar-card{padding:12px}
+  .cal-editor-head{display:grid;gap:10px}
+  .cal-score{width:100%;min-width:0}
+  .cal-actions{display:grid;grid-template-columns:1fr 1fr}
+  .cal-actions .plain-btn{width:100%;min-width:0;min-height:48px;font-size:16px}
+  .cal-task-list{grid-template-columns:1fr}
+  .cal-task{min-height:68px}
   .view#view-settings{padding-bottom:18px}
   .settings-wrap{max-width:none;width:100%;gap:16px}
   .setting-group{padding:20px 26px}
