@@ -3,6 +3,39 @@ const SUPABASE_CONFIG={
   url:'https://uoifrqehkfvpzqojaazh.supabase.co',
   anonKey:'sb_publishable_G-_4O-n-Q73TbJ4R2YmG9w_7WlKHC80',
 };
+const APP_INFO={
+  name:'Study Kanban',
+  version:'0.4.0',
+  releaseDate:'2026-04-21',
+  repo:'https://github.com/SuperFly233/study-kanban',
+  site:'https://study-kanban.vercel.app/',
+};
+const CHANGELOG=[
+  {
+    version:'0.4.0',
+    date:'2026-04-21',
+    title:'日历补打与关于页',
+    items:['日历页支持点击任意日期补打、取消或清空当天任务','新增关于页面，集中展示程序信息、部署信息和更新记录','README 重写为正常中文文档'],
+  },
+  {
+    version:'0.3.0',
+    date:'2026-04-21',
+    title:'云端同步冲突优化',
+    items:['已登录自动恢复时以云端为准，不再打扰用户','主动登录时才做本机与云端冲突确认','冲突处理新增合并选项，详细信息只展示不同项'],
+  },
+  {
+    version:'0.2.0',
+    date:'2026-04-18',
+    title:'账号系统与 Supabase 同步',
+    items:['新增登录入口、密码登录、邮箱链接登录和离线模式','接入 Supabase Auth 与 study_store 云端存储','新增应用内 toast 和确认弹窗，替换浏览器默认弹窗'],
+  },
+  {
+    version:'0.1.0',
+    date:'2026-04-18',
+    title:'备考看板初版',
+    items:['支持 CET-6 与初级会计两套备考计划','包含今日打卡、日历、清单、策略、考试准备大合集','支持浅色、深色与自动主题'],
+  },
+];
 let cloudClient=null;
 let cloudUser=null;
 let cloudBusy=false;
@@ -357,6 +390,7 @@ function renderActive(){
   if(activeView==='list')renderList();
   if(activeView==='plan')renderPlan();
   if(activeView==='settings')renderSettings();
+  if(activeView==='about')renderAbout();
   refreshMobilePin();
 }
 
@@ -979,6 +1013,43 @@ function renderSettings(){
   const storage=document.getElementById('storage-status');
   if(storage)storage.textContent=cloudUser?'localStorage + Supabase 云端同步':'localStorage，本机本浏览器记录。配置 Supabase 后可云端同步。';
   renderAccount();
+}
+function renderAbout(){
+  const box=document.getElementById('about-container');
+  if(!box)return;
+  const latest=CHANGELOG[0];
+  box.innerHTML=`
+    <div class="about-hero">
+      <div>
+        <div class="setting-title">关于</div>
+        <h2>${escapeHTML(APP_INFO.name)}</h2>
+        <p>为 CET-6 和初级会计准备的个人备考看板。它把每日打卡、日历补打、考试资料、云端同步和复盘内容放在一个轻量页面里。</p>
+      </div>
+      <div class="about-version">
+        <span>当前版本</span>
+        <strong>v${escapeHTML(APP_INFO.version)}</strong>
+        <em>${escapeHTML(APP_INFO.releaseDate)}</em>
+      </div>
+    </div>
+    <div class="about-grid">
+      <a class="about-link" href="${APP_INFO.site}" target="_blank" rel="noopener noreferrer"><b>线上地址</b><span>${escapeHTML(APP_INFO.site)}</span></a>
+      <a class="about-link" href="${APP_INFO.repo}" target="_blank" rel="noopener noreferrer"><b>GitHub 仓库</b><span>${escapeHTML(APP_INFO.repo)}</span></a>
+      <div class="about-link"><b>数据存储</b><span>localStorage + Supabase Auth / Postgres</span></div>
+      <div class="about-link"><b>最近更新</b><span>v${escapeHTML(latest.version)} · ${escapeHTML(latest.title)}</span></div>
+    </div>
+    <div class="about-card">
+      <div class="quick-head"><div><div class="quick-title">更新记录</div><div class="quick-sub">以后每次发版只更新 app.js 里的 CHANGELOG，这里会自动渲染。</div></div></div>
+      <div class="release-list">
+        ${CHANGELOG.map(entry=>`
+          <article class="release-item">
+            <div class="release-head"><b>v${escapeHTML(entry.version)}</b><span>${escapeHTML(entry.date)}</span></div>
+            <h3>${escapeHTML(entry.title)}</h3>
+            <ul>${entry.items.map(item=>`<li>${escapeHTML(item)}</li>`).join('')}</ul>
+          </article>
+        `).join('')}
+      </div>
+    </div>
+  `;
 }
 function renderAccount(){
   document.body.classList.toggle('cloud-logged-in',Boolean(cloudUser));
